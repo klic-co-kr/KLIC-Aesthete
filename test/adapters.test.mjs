@@ -16,6 +16,21 @@ test('zip: write→read round-trips text entries (stored + deflated)', () => {
   expect(zipEntryText(e, 'b.xml')).toBe(longText);
 });
 
+// Regression guard for the compMethod offset bug: Aesthete's zip reader/writer once used CD
+// offset +8 (the general-purpose FLAGS slot) for the compression method instead of +10. That
+// cancelled out in the writeZip→readZip round-trip (both wrong the same way) but broke reading
+// EVERY real .pptx (PowerPoint/OfficeCLI deflate every part and put method at the spec +10).
+// Asserts writeZip emits method at +10; the round-trip test above then covers readZip.
+test('zip: writeZip emits CD compression-method at spec offset +10 (not the +8 flags slot)', () => {
+  const z = writeZip([{ name: 'b.xml', data: '<r>' + 'a'.repeat(500) + '</r>' }]); // deflated
+  const v = new DataView(z.buffer, z.byteOffset, z.byteLength);
+  let eocd = -1;
+  for (let i = z.length - 22; i >= 0; i--) if (v.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  const cdOff = v.getUint32(eocd + 16, true);
+  expect(v.getUint16(cdOff + 10, true)).toBe(8); // method = deflate at spec offset +10
+  expect(v.getUint16(cdOff + 8, true)).toBe(0);  // +8 is flags, not method
+});
+
 test('zip: crc32 is deterministic', () => {
   const a = new TextEncoder().encode('abc');
   expect(crc32(a)).toBe(crc32(a));
