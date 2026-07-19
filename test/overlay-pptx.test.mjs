@@ -1,7 +1,33 @@
 import { test, expect } from 'bun:test';
-import { exportPptx, importPptx } from '../lib/adapters/pptx.mjs';
+import { exportPptx, importPptx, collectSpShapes } from '../lib/adapters/pptx.mjs';
 import { exportPatches, spOfficePaths } from '../lib/overlay/pptx.mjs';
 import { pxToEmu } from '../lib/adapters/emu.mjs';
+
+// slide with a group containing two nested <p:sp> — these must NOT be counted (officecli addresses
+// them at /slide[N]/group[K]/.., out of MVP scope). import and overlay use the SAME traversal, so a
+// grouped deck no longer triggers a count-mismatch throw.
+const GROUPED_SLIDE = `<?xml version="1.0"?><p:sld xmlns:p="http://x" xmlns:a="http://y"><p:cSld><p:spTree>
+  <p:nvGrpSpPr><p:cNvPr id="1" name=""/></p:nvGrpSpPr><p:grpSpPr/>
+  <p:sp><p:spPr><a:xfrm><a:off x="9525" y="0"/><a:ext cx="9525" cy="9525"/></a:xfrm></p:spPr></p:sp>
+  <p:grpSp><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+    <p:sp><p:spPr><a:xfrm><a:off x="9525" y="0"/><a:ext cx="9525" cy="9525"/></a:xfrm></p:spPr></p:sp>
+    <p:sp><p:spPr><a:xfrm><a:off x="19050" y="0"/><a:ext cx="9525" cy="9525"/></a:xfrm></p:spPr></p:sp>
+  </p:grpSp>
+</p:spTree></p:cSld></p:sld>`;
+
+test('collectSpShapes: top-level only — grouped <p:sp> are out of scope (no recursive grab)', () => {
+  const shapes = collectSpShapes(GROUPED_SLIDE);
+  // one top-level sp; the two nested-in-group sps must NOT appear
+  expect(shapes.length).toBe(1);
+  expect(shapes[0].shapeIdx).toBe(1);
+});
+
+test('overlay: importPptx and spOfficePaths agree on count for a grouped slide (no false throw)', () => {
+  // same traversal → counts match → positional sound. (Previously importPptx recursed via
+  // findByTag and grabbed the nested sps while spOfficePaths walked top-level → count mismatch.)
+  const paths = spOfficePaths(GROUPED_SLIDE);
+  expect(paths.length).toBe(1);
+});
 
 const alt = (nodes) => ({
   meta: { canvas: { w: 960, h: 540 }, source: 'abstract' },
