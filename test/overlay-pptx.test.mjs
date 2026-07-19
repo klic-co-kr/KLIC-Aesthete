@@ -1,5 +1,6 @@
 import { test, expect } from 'bun:test';
-import { exportPptx, importPptx, collectSpShapes } from '../lib/adapters/pptx.mjs';
+import { exportPptx, importPptx, collectSpShapes, slidePresentationOrder, fileToPresIdx } from '../lib/adapters/pptx.mjs';
+import { writeZip, readZip } from '../lib/adapters/zip.mjs';
 import { exportPatches, spOfficePaths } from '../lib/overlay/pptx.mjs';
 import { pxToEmu } from '../lib/adapters/emu.mjs';
 
@@ -27,6 +28,22 @@ test('overlay: importPptx and spOfficePaths agree on count for a grouped slide (
   // findByTag and grabbed the nested sps while spOfficePaths walked top-level → count mismatch.)
   const paths = spOfficePaths(GROUPED_SLIDE);
   expect(paths.length).toBe(1);
+});
+
+test('slidePresentationOrder: file → presentation order via sldIdLst + rels (reordered deck)', () => {
+  // presentation.xml lists rId2 BEFORE rId1 → presentation slide 1 = slide2.xml, slide 2 = slide1.xml
+  const presXml = '<?xml version="1.0"?><p:presentation xmlns:p="x" xmlns:r="y"><p:sldIdLst><p:sldId r:id="rId2"/><p:sldId r:id="rId1"/></p:sldIdLst></p:presentation>';
+  const relsXml = '<?xml version="1.0"?><Relationships xmlns="x"><Relationship Id="rId1" Target="slides/slide1.xml"/><Relationship Id="rId2" Target="slides/slide2.xml"/></Relationships>';
+  const entries = readZip(writeZip([
+    { name: 'ppt/presentation.xml', data: presXml },
+    { name: 'ppt/_rels/presentation.xml.rels', data: relsXml },
+    { name: 'ppt/slides/slide1.xml', data: '<p:sld/>' },
+    { name: 'ppt/slides/slide2.xml', data: '<p:sld/>' },
+  ]));
+  const order = slidePresentationOrder(entries);
+  expect(order.map((o) => o.file)).toEqual(['ppt/slides/slide2.xml', 'ppt/slides/slide1.xml']);
+  expect(fileToPresIdx(entries, 'ppt/slides/slide1.xml')).toBe(2); // file1 → presentation #2
+  expect(fileToPresIdx(entries, 'ppt/slides/slide2.xml')).toBe(1); // file2 → presentation #1
 });
 
 const alt = (nodes) => ({
