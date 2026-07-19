@@ -55,7 +55,8 @@
               "filled": { "type": "boolean", "description": "false for stroke-only/outline elements (e.g. lucide fill=none) — used to skip stroke–stroke crossing 'collisions' in icons" },
               "role": { "$ref": "common.schema.json#/$defs/role" }
             }
-          }
+          },
+          "_originalBbox": { "$ref": "common.schema.json#/$defs/bbox", "description": "import-time bbox copy (svg overlay only); the fix mutates `bbox`, overlay derives the transform delta from this. Optional." }
         }
       }
     },
