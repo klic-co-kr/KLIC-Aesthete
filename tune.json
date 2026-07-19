@@ -1,0 +1,32 @@
+{
+  "analysis": {
+    "analyzedPairs": 1,
+    "medianRatio": 0.3,
+    "tightened": true
+  },
+  "before": {
+    "proximity": {
+      "ALPHA": 1,
+      "RANG_RATIO": 1.5,
+      "FRAG_FACTOR": 2.5,
+      "SIM_THRESHOLD": 0.6
+    }
+  },
+  "changes": {
+    "FRAG_FACTOR": {
+      "from": 2.5,
+      "to": 1.25
+    },
+    "RANG_RATIO": {
+      "from": 1.5,
+      "to": 1.275
+    },
+    "ALPHA": {
+      "from": 1,
+      "to": 0.5,
+      "informational": true
+    }
+  },
+  "recommendation": "사용자가 관련 요소 간격을 50% 줄임 → 군집 타이트화 (FRAG_FACTOR 2.5→1.25, RANG_RATIO 1.5→1.275, α 1→0.5·신뢰도)",
+  "applied": false
+}

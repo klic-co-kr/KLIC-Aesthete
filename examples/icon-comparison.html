@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>듀오톤 차트 아이콘 — 인지 미학 스킬 비교</title>
+<style>
+  :root {
+    --blue:#1A73E8; --bg:#eef1f7; --card:#fff; --ink:#1f2330; --muted:#5b6273;
+    --pass:#16a34a; --fail:#dc2626; --line:#e3e7ef;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; font-family:system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    background:linear-gradient(180deg,#f4f6fb,#e9edf5); color:var(--ink); min-height:100vh; padding:48px 20px;
+  }
+  .wrap { max-width:1040px; margin:0 auto; }
+  h1 { font-size:26px; margin:0 0 8px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0 0 36px; font-size:14px; }
+  .sub code { background:#e7ebf3; padding:2px 7px; border-radius:6px; font-size:12px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  @media (max-width:760px){ .grid{grid-template-columns:1fr} }
+  .panel {
+    background:var(--card); border:1px solid var(--line); border-radius:18px; padding:24px;
+    box-shadow:0 12px 34px rgba(20,30,60,.07); position:relative; overflow:hidden;
+  }
+  .panel::before { content:""; position:absolute; inset:0 0 auto 0; height:4px; }
+  .panel.fail::before { background:var(--fail); }
+  .panel.pass::before { background:var(--pass); }
+  .head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .num { font-size:13px; font-weight:700; color:var(--muted); letter-spacing:.05em; }
+  .badge { font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; }
+  .badge.fail { background:#fdecec; color:var(--fail); }
+  .badge.pass { background:#e8f7ee; color:var(--pass); }
+  .stage {
+    background:#f7f9fc; border-radius:14px; padding:30px; display:flex; justify-content:center;
+    margin-bottom:18px; border:1px solid var(--line);
+  }
+  .stage svg { width:190px; height:190px; display:block; filter:drop-shadow(0 6px 14px rgba(26,115,232,.18)); }
+  .title { font-weight:700; font-size:15px; margin:0 0 4px; }
+  .desc { color:var(--muted); font-size:13px; margin:0 0 16px; line-height:1.55; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { font-size:12px; background:#f0f3f9; border:1px solid var(--line); padding:6px 10px; border-radius:8px; }
+  .chip b { color:var(--muted); font-weight:600; margin-right:3px; }
+  .chip.bad { border-color:#f3c9c5; background:#fdecec; }
+  .chip.bad b { color:var(--fail); }
+  .chip.good { border-color:#bfe6cd; background:#e8f7ee; }
+  .chip.good b { color:var(--pass); }
+  table {
+    width:100%; border-collapse:collapse; margin-top:30px; background:var(--card);
+    border:1px solid var(--line); border-radius:14px; overflow:hidden; font-size:14px;
+  }
+  th,td { padding:13px 18px; text-align:left; border-bottom:1px solid var(--line); }
+  tr:last-child td { border-bottom:none; }
+  th { background:#f7f9fc; color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  td.n { font-variant-numeric:tabular-nums; font-weight:600; }
+  .ok { color:var(--pass); } .ko { color:var(--fail); }
+  .note { color:var(--muted); font-size:12px; margin-top:20px; line-height:1.7; }
+  .note code { background:#e7ebf3; padding:2px 6px; border-radius:5px; font-size:11px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>듀오톤 차트 아이콘 — 인지 미학 스킬 비교</h1>
+  <p class="sub">같은 프롬프트에서 생성한 두 버전을 <code>aesthete</code> 스킬이 객관 측정한 결과. “괜찮아 보인다”는 직관이 아니라 산술이 판정한다.</p>
+
+  <div class="grid">
+    <!-- ① RAW -->
+    <div class="panel fail">
+      <div class="head"><span class="num">① 프롬프트만</span><span class="badge fail">FAIL · collision 1</span></div>
+      <div class="stage">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M5 3 h14 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 h-14 a2 2 0 0 1 -2 -2 v-14 a2 2 0 0 1 2 -2 Z" fill="#1A73E8" opacity="0.3"/>
+          <path d="M7 15 h1 a1 1 0 0 1 1 1 v1 a1 1 0 0 1 -1 1 h-1 a1 1 0 0 1 -1 -1 v-1 a1 1 0 0 1 1 -1 Z" fill="#1A73E8"/>
+          <path d="M8.5 11 h1 a1 1 0 0 1 1 1 v5 a1 1 0 0 1 -1 1 h-1 a1 1 0 0 1 -1 -1 v-5 a1 1 0 0 1 1 -1 Z" fill="#1A73E8"/>
+          <path d="M15 7 h1 a1 1 0 0 1 1 1 v9 a1 1 0 0 1 -1 1 h-1 a1 1 0 0 1 -1 -1 v-9 a1 1 0 0 1 1 -1 Z" fill="#1A73E8"/>
+          <rect x="7.5" y="15" width="1.5" height="3" fill="none" stroke="#dc2626" stroke-width="0.5" stroke-dasharray="0.5 0.4"/>
+        </svg>
+      </div>
+      <p class="title">직관 기반 첫 草案</p>
+      <p class="desc">그럴듯해 보이지만 <b style="color:var(--fail)">첫·둘째 막대가 겹침</b>(빨간 점선). 눈으로 놓치기 쉬운 구조적 결함을 기하학이 포착.</p>
+      <div class="chips">
+        <span class="chip bad"><b>collision</b>1</span>
+        <span class="chip"><b>boundary</b>0</span>
+        <span class="chip"><b>freeRatio</b>0.75</span>
+        <span class="chip"><b>overall</b>0.608</span>
+      </div>
+    </div>
+
+    <!-- ② APPLIED -->
+    <div class="panel pass">
+      <div class="head"><span class="num">② 인지 스킬 적용</span><span class="badge pass">PASS · 3/3</span></div>
+      <div class="stage">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M5 3 h14 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 h-14 a2 2 0 0 1 -2 -2 v-14 a2 2 0 0 1 2 -2 Z" fill="#1A73E8" opacity="0.3"/>
+          <path d="M6.5 15 h1 a1 1 0 0 1 1 1 v1 a1 1 0 0 1 -1 1 h-1 a1 1 0 0 1 -1 -1 v-1 a1 1 0 0 1 1 -1 Z" fill="#1A73E8"/>
+          <path d="M10.5 11 h1 a1 1 0 0 1 1 1 v5 a1 1 0 0 1 -1 1 h-1 a1 1 0 0 1 -1 -1 v-5 a1 1 0 0 1 1 -1 Z" fill="#1A73E8"/>
+          <path d="M14.5 7 h1 a1 1 0 0 1 1 1 v9 a1 1 0 0 1 -1 1 h-1 a1 1 0 0 1 -1 -1 v-9 a1 1 0 0 1 1 -1 Z" fill="#1A73E8"/>
+        </svg>
+      </div>
+      <p class="title">스킬 처방 보정</p>
+      <p class="desc">겹침 분리, 균일 1px 간격, 동일 상승 곡선. 성장(오름차순) 비대칭은 의도적이라 계약이 존중.</p>
+      <div class="chips">
+        <span class="chip good"><b>collision</b>0</span>
+        <span class="chip"><b>boundary</b>0</span>
+        <span class="chip"><b>freeRatio</b>0.69</span>
+        <span class="chip"><b>overall</b>0.860</span>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>측정 지표</th><th>① 프롬프트</th><th>② 스킬 적용</th><th>스킬 / 등급</th></tr></thead>
+    <tbody>
+      <tr><td>collision · 겹침 횟수</td><td class="n ko">1</td><td class="n ok">0</td><td>collision (P0 하드)</td></tr>
+      <tr><td>boundary · 캔버스 이탈</td><td class="n">0</td><td class="n">0</td><td>boundary (P0 하드)</td></tr>
+      <tr><td>whitespace · 여백 비율</td><td class="n">0.75</td><td class="n">0.69</td><td>whitespace (P2)</td></tr>
+      <tr><td><b>overall · 가중 점수</b></td><td class="n ko">0.608</td><td class="n ok">0.860</td><td>측정 엔진</td></tr>
+      <tr><td><b>판정 (Sprint Contract)</b></td><td class="n ko">FAIL</td><td class="n ok">PASS</td><td>동결 루브릭</td></tr>
+    </tbody>
+  </table>
+
+  <p class="note">
+    balance·proximity는 차트의 <b>상승(성장) 비대칭</b>과 <b>막대 행 분산</b>이 의도적이므로 아이콘 전용 Sprint Contract에서 제외 — 스킬이 디자인 의도를 존중.
+    평가자는 LLM이 아니라 산술이라 사후 합리화가 구조적으로 불가능. 수치는 <code>aesthete</code>의 결정론적 측정 결과(동일 입력 → 동일 출력).
+  </p>
+</div>
+</body>
+</html>

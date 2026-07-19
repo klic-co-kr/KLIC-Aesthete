@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "diagram_type": "layout",
+  "meta": { "title": "카탈로그 (불량)", "canvas": { "w": 1200, "h": 800 }, "source": "abstract" },
+  "nodes": [
+    { "id": "title", "label": "제품 카탈로그", "category": "title", "kind": "text", "bbox": { "x": 440, "y": 60, "w": 320, "h": 50 }, "style": { "fontSize": 40, "luminance": 0.1, "color": "#111827", "bg": "#ffffff", "role": "heading" } },
+
+    { "id": "c1-head", "label": "수집", "category": "card-1", "kind": "text", "bbox": { "x": 80, "y": 200, "w": 280, "h": 40 }, "style": { "fontSize": 24, "luminance": 0.1, "color": "#111827", "bg": "#ffffff", "role": "heading" } },
+    { "id": "c1-icon", "label": "icon", "category": "card-1", "kind": "icon", "bbox": { "x": 80, "y": 260, "w": 60, "h": 60 }, "style": { "luminance": 0.2, "color": "#111827", "bg": "#ffffff", "role": "decor" } },
+    { "id": "c1-body", "label": "본문", "category": "card-1", "kind": "text", "bbox": { "x": 900, "y": 650, "w": 280, "h": 120 }, "style": { "fontSize": 16, "luminance": 0.3, "color": "#374151", "bg": "#ffffff", "role": "body" } },
+
+    { "id": "c2-head", "label": "처리", "category": "card-2", "kind": "text", "bbox": { "x": 460, "y": 200, "w": 280, "h": 40 }, "style": { "fontSize": 24, "luminance": 0.1, "color": "#111827", "bg": "#ffffff", "role": "heading" } },
+    { "id": "c2-icon", "label": "icon", "category": "card-2", "kind": "icon", "bbox": { "x": 460, "y": 330, "w": 60, "h": 60 }, "style": { "luminance": 0.2, "color": "#111827", "bg": "#ffffff", "role": "decor" } },
+    { "id": "c2-body", "label": "본문", "category": "card-2", "kind": "text", "bbox": { "x": 460, "y": 340, "w": 280, "h": 120 }, "style": { "fontSize": 16, "luminance": 0.3, "color": "#374151", "bg": "#ffffff", "role": "body" } },
+
+    { "id": "c3-head", "label": "시각화", "category": "card-3", "kind": "text", "bbox": { "x": 840, "y": 200, "w": 280, "h": 40 }, "style": { "fontSize": 24, "luminance": 0.1, "color": "#111827", "bg": "#ffffff", "role": "heading" } },
+    { "id": "c3-icon", "label": "icon", "category": "card-3", "kind": "icon", "bbox": { "x": 840, "y": 260, "w": 60, "h": 60 }, "style": { "luminance": 0.2, "color": "#111827", "bg": "#ffffff", "role": "decor" } },
+    { "id": "c3-body", "label": "본문", "category": "card-3", "kind": "text", "bbox": { "x": 1100, "y": 340, "w": 280, "h": 120 }, "style": { "fontSize": 16, "luminance": 0.3, "color": "#374151", "bg": "#ffffff", "role": "body" } }
+  ]
+}

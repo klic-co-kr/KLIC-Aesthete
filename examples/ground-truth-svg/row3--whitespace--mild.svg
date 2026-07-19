@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#ffffff"/>
+  <rect x="80" y="295" width="280" height="170" fill="#60a5fa" data-category="c1"/>
+  <text x="80" y="495" font-size="22" fill="#0f172a" data-category="c1">card 1</text>
+  <rect x="460" y="295" width="280" height="170" fill="#3b82f6" data-category="c2"/>
+  <text x="460" y="495" font-size="22" fill="#0f172a" data-category="c2">card 2</text>
+  <rect x="840" y="295" width="280" height="170" fill="#2563eb" data-category="c3"/>
+  <text x="840" y="495" font-size="22" fill="#0f172a" data-category="c3">card 3</text>
+  <rect x="2" y="2" width="196" height="196" fill="#cbd5e1" data-category="fill-0"/>
+  <rect x="202" y="2" width="196" height="196" fill="#cbd5e1" data-category="fill-1"/>
+  <rect x="402" y="2" width="196" height="196" fill="#cbd5e1" data-category="fill-2"/>
+  <rect x="602" y="2" width="196" height="196" fill="#cbd5e1" data-category="fill-3"/>
+  <rect x="802" y="2" width="196" height="196" fill="#cbd5e1" data-category="fill-4"/>
+  <rect x="1002" y="2" width="196" height="196" fill="#cbd5e1" data-category="fill-5"/>
+  <rect x="2" y="202" width="196" height="196" fill="#cbd5e1" data-category="fill-6"/>
+  <rect x="202" y="202" width="196" height="196" fill="#cbd5e1" data-category="fill-7"/>
+  <rect x="402" y="202" width="196" height="196" fill="#cbd5e1" data-category="fill-8"/>
+  <rect x="602" y="202" width="196" height="196" fill="#cbd5e1" data-category="fill-9"/>
+  <rect x="802" y="202" width="196" height="196" fill="#cbd5e1" data-category="fill-10"/>
+  <rect x="1002" y="202" width="196" height="196" fill="#cbd5e1" data-category="fill-11"/>
+  <rect x="2" y="402" width="196" height="196" fill="#cbd5e1" data-category="fill-12"/>
+  <rect x="202" y="402" width="196" height="196" fill="#cbd5e1" data-category="fill-13"/>
+  <rect x="402" y="402" width="196" height="196" fill="#cbd5e1" data-category="fill-14"/>
+  <rect x="602" y="402" width="196" height="196" fill="#cbd5e1" data-category="fill-15"/>
+  <rect x="802" y="402" width="196" height="196" fill="#cbd5e1" data-category="fill-16"/>
+  <rect x="1002" y="402" width="196" height="196" fill="#cbd5e1" data-category="fill-17"/>
+  <rect x="2" y="602" width="196" height="196" fill="#cbd5e1" data-category="fill-18"/>
+  <rect x="202" y="602" width="196" height="196" fill="#cbd5e1" data-category="fill-19"/>
+  <rect x="402" y="602" width="196" height="196" fill="#cbd5e1" data-category="fill-20"/>
+  <rect x="602" y="602" width="196" height="196" fill="#cbd5e1" data-category="fill-21"/>
+  <rect x="802" y="602" width="196" height="196" fill="#cbd5e1" data-category="fill-22"/>
+  <rect x="1002" y="602" width="196" height="196" fill="#cbd5e1" data-category="fill-23"/>
+</svg>

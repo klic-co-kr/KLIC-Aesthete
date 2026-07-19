@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "diagram_type": "layout",
+  "meta": {
+    "title": "카탈로그 (수정 가능 — P0 위반만)",
+    "canvas": {
+      "w": 1200,
+      "h": 800
+    },
+    "source": "abstract"
+  },
+  "nodes": [
+    {
+      "id": "c1-box",
+      "label": "수집",
+      "category": "card-1",
+      "kind": "container",
+      "bbox": {
+        "x": 80,
+        "y": 285,
+        "w": 280,
+        "h": 170
+      },
+      "style": {
+        "luminance": 0.15,
+        "color": "#111827",
+        "bg": "#ffffff",
+        "role": "decor"
+      }
+    },
+    {
+      "id": "c1-lbl",
+      "label": "수집",
+      "category": "card-1",
+      "kind": "text",
+      "bbox": {
+        "x": 80,
+        "y": 471,
+        "w": 280,
+        "h": 44
+      },
+      "style": {
+        "fontSize": 24,
+        "luminance": 0.1,
+        "color": "#111827",
+        "bg": "#ffffff",
+        "role": "heading"
+      }
+    },
+    {
+      "id": "c2-box",
+      "label": "처리",
+      "category": "card-2",
+      "kind": "container",
+      "bbox": {
+        "x": 460,
+        "y": 285,
+        "w": 280,
+        "h": 170
+      },
+      "style": {
+        "luminance": 0.15,
+        "color": "#111827",
+        "bg": "#ffffff",
+        "role": "decor"
+      }
+    },
+    {
+      "id": "c2-lbl",
+      "label": "처리",
+      "category": "card-2",
+      "kind": "text",
+      "bbox": {
+        "x": 460,
+        "y": 225,
+        "w": 280,
+        "h": 44
+      },
+      "style": {
+        "fontSize": 24,
+        "luminance": 0.1,
+        "color": "#111827",
+        "bg": "#ffffff",
+        "role": "heading"
+      }
+    },
+    {
+      "id": "c3-box",
+      "label": "시각화",
+      "category": "card-3",
+      "kind": "container",
+      "bbox": {
+        "x": 920,
+        "y": 285,
+        "w": 280,
+        "h": 170
+      },
+      "style": {
+        "luminance": 0.15,
+        "color": "#111827",
+        "bg": "#ffffff",
+        "role": "decor"
+      }
+    },
+    {
+      "id": "c3-lbl",
+      "label": "시각화",
+      "category": "card-3",
+      "kind": "text",
+      "bbox": {
+        "x": 920,
+        "y": 471,
+        "w": 280,
+        "h": 44
+      },
+      "style": {
+        "fontSize": 24,
+        "luminance": 0.1,
+        "color": "#111827",
+        "bg": "#ffffff",
+        "role": "heading"
+      }
+    }
+  ]
+}

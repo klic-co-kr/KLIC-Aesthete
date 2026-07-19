@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/contract.schema.json",
+  "title": "Sprint Contract",
+  "description": "Frozen rubric written BEFORE generation. The evaluator reads ONLY this file + the measurement report — never the generator's source or excuses. This is the anti-rationalization contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "brief", "criteria"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "brief": { "type": "string" },
+    "criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["skill", "metric", "op", "threshold", "weight"],
+        "properties": {
+          "skill": { "type": "string" },
+          "metric": { "type": "string" },
+          "op": { "$ref": "common.schema.json#/$defs/op" },
+          "threshold": { "type": "number" },
+          "weight": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

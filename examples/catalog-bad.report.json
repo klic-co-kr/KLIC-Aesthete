@@ -1,0 +1,322 @@
+{
+  "schema_version": 1,
+  "summary": {
+    "overallScore": 0.348,
+    "hardIntegrityScore": 0,
+    "measuredAestheticScore": 0.348,
+    "coverageScore": 1,
+    "totalWeightedViolation": 9.75,
+    "passing": [
+      "fluency",
+      "harmony",
+      "hierarchy",
+      "whitespace"
+    ],
+    "failing": [
+      "balance",
+      "boundary",
+      "collision",
+      "proximity",
+      "similarity"
+    ]
+  },
+  "skills": {
+    "collision": {
+      "score": 0,
+      "coverage": "measured",
+      "metrics": {
+        "count": 1
+      },
+      "effect": "요소 겹침 제거로 명확한 figure-ground 분리를 복원 → saccadic eye movement 안정화. 가독성의 최상위 전제(P0).",
+      "violations": [
+        {
+          "severity": "high",
+          "nodes": [
+            "c2-icon",
+            "c2-body"
+          ],
+          "metric": "count",
+          "measured": 50,
+          "threshold": 0,
+          "message": "collision: /nodes/c2-icon ↔ /nodes/c2-body overlap 50px on Y (threshold 0px) — separate along Y",
+          "fix": {
+            "kind": "separate-overlap",
+            "a": "c2-icon",
+            "b": "c2-body",
+            "axis": "Y",
+            "magnitude": 50,
+            "gap": 0,
+            "mode": "autoFixable"
+          }
+        }
+      ]
+    },
+    "boundary": {
+      "score": 0,
+      "coverage": "measured",
+      "metrics": {
+        "overflowCount": 1,
+        "totalOverflowPx": 180
+      },
+      "effect": "캔버스 내 완결 배치로 게슈탈트 폐쇄성(closure) 만족 → 잘림으로 인한 인지 단절·불안 방지.",
+      "violations": [
+        {
+          "severity": "high",
+          "nodes": [
+            "c3-body"
+          ],
+          "metric": "overflowCount",
+          "measured": 180,
+          "threshold": 0,
+          "message": "boundary: /nodes/c3-body overflows canvas by 180px (threshold 0px) — clamp into 1200×800",
+          "fix": {
+            "kind": "clamp-overflow",
+            "node": "c3-body",
+            "mode": "autoFixable"
+          }
+        }
+      ]
+    },
+    "proximity": {
+      "score": 0,
+      "coverage": "measured",
+      "metrics": {
+        "fragmentedCount": 3,
+        "falseAdjacencyCount": 2,
+        "meanGroupP": 0.075
+      },
+      "effect": "근접 요소를 단일 지각 단위로 군집화(Wertheimer, 1923) → 불필요 saccade 감소·처리 유창성(Reber)↑ → 인지 부하·탐색 마찰 감소.",
+      "violations": [
+        {
+          "severity": "medium",
+          "nodes": [
+            "title",
+            "c2-head"
+          ],
+          "metric": "falseAdjacencyCount",
+          "measured": 0.355,
+          "threshold": 0,
+          "message": "proximity: /nodes/title ↔ /nodes/c2-head too close (d 135 ≤ 1.5×nn) but unrelated — increase gap",
+          "fix": {
+            "kind": "increase-gap",
+            "a": "title",
+            "b": "c2-head",
+            "mode": "autoFixable"
+          }
+        },
+        {
+          "severity": "medium",
+          "nodes": [
+            "c1-body",
+            "c3-body"
+          ],
+          "metric": "falseAdjacencyCount",
+          "measured": 0.059,
+          "threshold": 0,
+          "message": "proximity: /nodes/c1-body ↔ /nodes/c3-body too close (d 369 ≤ 1.5×nn) but unrelated — increase gap",
+          "fix": {
+            "kind": "increase-gap",
+            "a": "c1-body",
+            "b": "c3-body",
+            "mode": "autoFixable"
+          }
+        },
+        {
+          "severity": "medium",
+          "nodes": [
+            "c1-head",
+            "c1-body"
+          ],
+          "metric": "fragmentedCount",
+          "measured": 955,
+          "threshold": 326,
+          "message": "proximity: /nodes/c1-head ↔ /nodes/c1-body related but split (d 955 > 2.5×typical 130) — move closer into one cluster",
+          "fix": {
+            "kind": "shift-toward-cluster-centroid",
+            "node": "c1-body",
+            "toward": "c1-head",
+            "mode": "autoFixable"
+          }
+        },
+        {
+          "severity": "medium",
+          "nodes": [
+            "c1-icon",
+            "c1-body"
+          ],
+          "metric": "fragmentedCount",
+          "measured": 1020,
+          "threshold": 326,
+          "message": "proximity: /nodes/c1-icon ↔ /nodes/c1-body related but split (d 1020 > 2.5×typical 130) — move closer into one cluster",
+          "fix": {
+            "kind": "shift-toward-cluster-centroid",
+            "node": "c1-body",
+            "toward": "c1-icon",
+            "mode": "autoFixable"
+          }
+        },
+        {
+          "severity": "medium",
+          "nodes": [
+            "c3-icon",
+            "c3-body"
+          ],
+          "metric": "fragmentedCount",
+          "measured": 386,
+          "threshold": 326,
+          "message": "proximity: /nodes/c3-icon ↔ /nodes/c3-body related but split (d 386 > 2.5×typical 130) — move closer into one cluster",
+          "fix": {
+            "kind": "shift-toward-cluster-centroid",
+            "node": "c3-body",
+            "toward": "c3-icon",
+            "mode": "autoFixable"
+          }
+        }
+      ]
+    },
+    "balance": {
+      "score": 0.498,
+      "coverage": "measured",
+      "metrics": {
+        "BM": 0.498,
+        "BMv": -0.861,
+        "BMh": 0.143
+      },
+      "effect": "광학 무게 중심의 평형(Ngo, 2001) → 정서적 안정감·시지각적 편안함, early visual processing 단과 연관(2024, Symmetry).",
+      "violations": [
+        {
+          "severity": "medium",
+          "nodes": [
+            "c1-body"
+          ],
+          "metric": "BM",
+          "measured": 0.498,
+          "threshold": 0.85,
+          "message": "balance: BM 0.50 < 0.85 (right-heavy, top-heavy) — shift heaviest /nodes/c1-body toward canvas center",
+          "fix": {
+            "kind": "shift-heaviest-toward-center",
+            "node": "c1-body",
+            "mode": "autoFixable"
+          }
+        }
+      ]
+    },
+    "whitespace": {
+      "score": 1,
+      "coverage": "measured",
+      "metrics": {
+        "freeRatio": 0.828,
+        "largestFreeRect": {
+          "area": 60000,
+          "aspectRatio": 1.5
+        },
+        "margins": {
+          "top": 60,
+          "bottom": 30,
+          "left": 80,
+          "right": 0
+        },
+        "minMargin": 0
+      },
+      "effect": "능동 여백으로 처리 유창성(Reber et al.) 극대화 → 시선 유도·cognitive load 감소, 시각 복잡도 통제(Fan et al.).",
+      "violations": []
+    },
+    "hierarchy": {
+      "score": 0.885,
+      "coverage": "measured",
+      "metrics": {
+        "clarity": 0.885,
+        "stepRegularity": 0.885,
+        "contrastAdequacy": 1,
+        "distinctSizes": 3
+      },
+      "effect": "명확한 시각 계층 → Treisman Feature Integration Theory 기반 visual search 시간 단축, 정보 우선순위 즉시 인지.",
+      "violations": []
+    },
+    "harmony": {
+      "score": 1,
+      "coverage": "measured",
+      "metrics": {
+        "distinctHues": 0,
+        "momentBalance": 1,
+        "analogousScore": 1,
+        "birkhoff": 1,
+        "harmonyScore": 1
+      },
+      "effect": "보색 모멘트 평형 + analogous 그룹화(Birkhoff M=O/C, Munsell) → 색채 피로 감소, 지각적 안정·자연스러운 흐름.",
+      "violations": []
+    },
+    "similarity": {
+      "score": 0,
+      "coverage": "measured",
+      "metrics": {
+        "inconsistentGroups": 3,
+        "meanConsistency": 0,
+        "groupsMeasured": 3
+      },
+      "effect": "동일 그룹·종류 요소의 시각 일관성으로 게슈탈트 유사성(Similarity) 군집화 강화 → 지각적 단위화, visual search 효율↑.",
+      "violations": [
+        {
+          "severity": "low",
+          "nodes": [
+            "c1-head",
+            "c1-body"
+          ],
+          "metric": "inconsistentGroups",
+          "measured": 0,
+          "threshold": 0.6,
+          "message": "similarity: group \"card-1|text\" visually inconsistent (consistency 0.00 < 0.60) — unify size/lightness/color among same-group elements",
+          "fix": {
+            "kind": "unify-group",
+            "category": "card-1",
+            "mode": "suggestionOnly"
+          }
+        },
+        {
+          "severity": "low",
+          "nodes": [
+            "c2-head",
+            "c2-body"
+          ],
+          "metric": "inconsistentGroups",
+          "measured": 0,
+          "threshold": 0.6,
+          "message": "similarity: group \"card-2|text\" visually inconsistent (consistency 0.00 < 0.60) — unify size/lightness/color among same-group elements",
+          "fix": {
+            "kind": "unify-group",
+            "category": "card-2",
+            "mode": "suggestionOnly"
+          }
+        },
+        {
+          "severity": "low",
+          "nodes": [
+            "c3-head",
+            "c3-body"
+          ],
+          "metric": "inconsistentGroups",
+          "measured": 0,
+          "threshold": 0.6,
+          "message": "similarity: group \"card-3|text\" visually inconsistent (consistency 0.00 < 0.60) — unify size/lightness/color among same-group elements",
+          "fix": {
+            "kind": "unify-group",
+            "category": "card-3",
+            "mode": "suggestionOnly"
+          }
+        }
+      ]
+    },
+    "fluency": {
+      "score": 0.875,
+      "coverage": "measured",
+      "metrics": {
+        "flowInversions": 0,
+        "flowScore": 1,
+        "gradientScore": 0.75,
+        "fluency": 0.875
+      },
+      "effect": "읽기 흐름(Z/F-pattern) 정렬 + 크기-중요도 기울기로 처리 유창성(Reber et al., 2004)↑ → 이해·회상·미학적 쾌감 증가. 과도한 단조는 지루함(Birkhoff O/C 균형).",
+      "violations": []
+    }
+  }
+}

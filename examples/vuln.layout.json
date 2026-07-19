@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "diagram_type": "layout",
+  "meta": { "title": "취약점 예시 — 템플릿 느낌 (균일 간격·포컬 없음·다수 타입사이즈·보라 팔레트)", "canvas": { "w": 1200, "h": 800 }, "source": "abstract" },
+  "nodes": [
+    { "id": "c1", "kind": "box", "category": "card", "bbox": { "x": 100, "y": 100, "w": 200, "h": 120 }, "style": { "fontSize": 10, "opacity": 1, "bg": "#3b82f6", "color": "#ffffff" } },
+    { "id": "c2", "kind": "box", "category": "card", "bbox": { "x": 400, "y": 100, "w": 200, "h": 120 }, "style": { "fontSize": 12, "opacity": 1, "bg": "#6366f1", "color": "#ffffff" } },
+    { "id": "c3", "kind": "box", "category": "card", "bbox": { "x": 700, "y": 100, "w": 200, "h": 120 }, "style": { "fontSize": 14, "opacity": 1, "bg": "#8b5cf6", "color": "#ffffff" } },
+    { "id": "c4", "kind": "box", "category": "card", "bbox": { "x": 1000, "y": 100, "w": 200, "h": 120 }, "style": { "fontSize": 18, "opacity": 1, "bg": "#a855f7", "color": "#ffffff" } },
+    { "id": "c5", "kind": "box", "category": "card", "bbox": { "x": 100, "y": 300, "w": 200, "h": 120 }, "style": { "fontSize": 24, "opacity": 1, "bg": "#3b82f6", "color": "#ffffff" } },
+    { "id": "c6", "kind": "box", "category": "card", "bbox": { "x": 400, "y": 300, "w": 200, "h": 120 }, "style": { "fontSize": 32, "opacity": 1, "bg": "#6366f1", "color": "#ffffff" } }
+  ]
+}

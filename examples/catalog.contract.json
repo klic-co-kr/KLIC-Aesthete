@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "brief": "3~5개 텍스트+아이콘 카탈로그 SVG. 각 카드는 헤더·아이콘·본문 군집으로 구성. 캔버스 1200×800.",
+  "criteria": [
+    { "skill": "collision", "metric": "count", "op": "==", "threshold": 0, "weight": 3 },
+    { "skill": "boundary", "metric": "overflowCount", "op": "==", "threshold": 0, "weight": 3 },
+    { "skill": "hierarchy", "metric": "clarity", "op": ">=", "threshold": 0.7, "weight": 1.5 },
+    { "skill": "balance", "metric": "BM", "op": ">=", "threshold": 0.85, "weight": 1 },
+    { "skill": "proximity", "metric": "fragmentedCount", "op": "==", "threshold": 0, "weight": 1 },
+    { "skill": "proximity", "metric": "falseAdjacencyCount", "op": "==", "threshold": 0, "weight": 1 },
+    { "skill": "whitespace", "metric": "freeRatio", "op": ">=", "threshold": 0.25, "weight": 1 },
+    { "skill": "harmony", "metric": "harmonyScore", "op": ">=", "threshold": 0.5, "weight": 1 },
+    { "skill": "similarity", "metric": "inconsistentGroups", "op": "==", "threshold": 0, "weight": 1 },
+    { "skill": "fluency", "metric": "fluency", "op": ">=", "threshold": 0.6, "weight": 1 }
+  ]
+}

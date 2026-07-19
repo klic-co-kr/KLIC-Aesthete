@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/validation-corpus.schema.json",
+  "title": "Validation Corpus",
+  "description": "Input to lib/validate.mjs. Each entry pairs a layout (alt) with a human score (1-10 or pairwise). demo:true marks SYNTHETIC placeholder scores — the harness runs but is NOT a validation until real human ratings replace them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entries"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "demo": { "type": "boolean" },
+    "note": { "type": "string" },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "humanScore", "alt"],
+        "properties": {
+          "id": { "type": "string" },
+          "humanScore": { "type": "number" },
+          "alt": { "type": "object" }
+        }
+      }
+    }
+  }
+}

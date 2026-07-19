@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "n": 57,
+  "baseline": {
+    "id": "·",
+    "label": "baseline (predict-mean)",
+    "spearman": 0,
+    "pearson": 0
+  },
+  "variants": [
+    {
+      "id": "A",
+      "label": "overallScore (legacy)",
+      "spearman": 0.327,
+      "pearson": 0.325
+    },
+    {
+      "id": "B",
+      "label": "measuredAestheticScore (§12)",
+      "spearman": 0.326,
+      "pearson": 0.325
+    },
+    {
+      "id": "C",
+      "label": "hardIntegrityScore (P0)",
+      "spearman": 0.271,
+      "pearson": 0.286
+    },
+    {
+      "id": "D",
+      "label": "coverageScore",
+      "spearman": 0,
+      "pearson": 0
+    }
+  ],
+  "winner": "A",
+  "beatsBaseline": [
+    "A",
+    "B",
+    "C"
+  ],
+  "demo": false,
+  "note": "Synthetic GROUND-TRUTH corpus. Labels are INJECTED defect type + severity (construction facts independent of the metrics) — ordinal humanScore = 1.0 clean / 0.7 mild / 0.4 moderate / 0.1 severe. Validates severity calibration, orthogonality, and false-positive freedom. NOT human aesthetic preference. id format: <template>--<defect|--clean>--<severity>."
+}

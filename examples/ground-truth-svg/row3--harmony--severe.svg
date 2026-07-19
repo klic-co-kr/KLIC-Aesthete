@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#ffffff"/>
+  <rect x="80" y="295" width="280" height="170" fill="#ff0000" data-category="c1"/>
+  <text x="80" y="495" font-size="22" fill="#0f172a" data-category="c1">card 1</text>
+  <rect x="460" y="295" width="280" height="170" fill="#00ffff" data-category="c2"/>
+  <text x="460" y="495" font-size="22" fill="#0f172a" data-category="c2">card 2</text>
+  <rect x="840" y="295" width="280" height="170" fill="#ffff00" data-category="c3"/>
+  <text x="840" y="495" font-size="22" fill="#0f172a" data-category="c3">card 3</text>
+</svg>

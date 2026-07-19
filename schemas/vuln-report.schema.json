@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/vuln-report.schema.json",
+  "title": "Vulnerability Report",
+  "description": "Output of lib/vuln.mjs. Discrete known-bad-pattern findings (the negation engine). Deterministic, read-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "summary", "vulnerabilities"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vulnCount", "bySeverity", "coverage", "profile"],
+      "properties": {
+        "vulnCount": { "type": "number", "minimum": 0 },
+        "bySeverity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["high", "medium", "low"],
+          "properties": {
+            "high": { "type": "number", "minimum": 0 },
+            "medium": { "type": "number", "minimum": 0 },
+            "low": { "type": "number", "minimum": 0 }
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["geometry", "text", "color"],
+          "properties": {
+            "geometry": { "$ref": "common.schema.json#/$defs/coverage" },
+            "text": { "$ref": "common.schema.json#/$defs/coverage" },
+            "color": { "$ref": "common.schema.json#/$defs/coverage" }
+          }
+        },
+        "artifact_type": { "type": ["string", "null"] },
+        "suppressed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "reason"],
+            "properties": { "id": { "type": "string" }, "reason": { "type": "string" } }
+          }
+        },
+        "advisory": { "type": "boolean" },
+        "profile": { "type": "string" }
+      }
+    },
+    "vulnerabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "severity", "signal", "threshold", "nodes", "remediation", "mode"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "severity": { "$ref": "common.schema.json#/$defs/severity" },
+          "signal": { "type": "number" },
+          "threshold": { "type": "number" },
+          "axis": { "type": "string" },
+          "nodes": { "type": "array", "items": { "type": "string" } },
+          "remediation": { "type": "string" },
+          "mode": { "$ref": "common.schema.json#/$defs/fixMode" }
+        }
+      }
+    }
+  }
+}

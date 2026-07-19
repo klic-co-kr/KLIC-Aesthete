@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/report.schema.json",
+  "title": "Measurement Report",
+  "description": "Output of lib/measure.mjs. Deterministic — no timestamps, no random ids. Byte-stable for golden tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "summary", "skills"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overallScore", "passing", "failing", "totalWeightedViolation"],
+      "properties": {
+        "overallScore": { "type": "number", "description": "Legacy inclusive score (includes unmeasurable axes as neutral 1.0). Prefer measuredAestheticScore." },
+        "hardIntegrityScore": { "type": "number", "description": "P0 structural floor — weighted avg of collision + boundary." },
+        "measuredAestheticScore": { "type": "number", "description": "Weighted avg of measured axes only (excludes unmeasurable)." },
+        "coverageScore": { "type": "number", "description": "Fraction of total weight that was actually measured (0..1)." },
+        "totalWeightedViolation": { "type": "number" },
+        "passing": { "type": "array", "items": { "type": "string" } },
+        "failing": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "skills": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["score", "metrics", "violations"],
+        "properties": {
+          "score": { "type": "number" },
+          "coverage": { "$ref": "common.schema.json#/$defs/coverage" },
+          "metrics": { "type": "object" },
+          "effect": { "type": "string" },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["severity", "message"],
+              "properties": {
+                "severity": { "$ref": "common.schema.json#/$defs/severity" },
+                "message": { "type": "string" },
+                "nodes": { "type": "array", "items": { "type": "string" } },
+                "metric": { "type": "string" },
+                "measured": { "type": "number" },
+                "threshold": { "type": "number" },
+                "fix": {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string" },
+                    "mode": { "$ref": "common.schema.json#/$defs/fixMode" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "aesthete",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cognitive aesthetic measurement + deterministic auto-fix engine for structured layouts (SVG/PPTX/OOXML/HTML/Image) via Abstract Layout Tree.",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "bun test/golden.mjs && bun test",
+    "measure": "bun lib/measure.mjs",
+    "fix": "bun lib/fix.mjs",
+    "lint": "bun lib/lint.mjs",
+    "tune": "bun lib/tune.mjs",
+    "harness": "bun lib/harness.mjs",
+    "emit": "bun lib/emit.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "cloakbrowser": "^0.4.11",
+    "playwright-core": "^1.61.1"
+  }
+}

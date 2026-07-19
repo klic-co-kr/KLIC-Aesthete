@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <rect width="240" height="240" fill="#ecfeff"/>
+  <circle cx="120" cy="120" r="30" fill="#1d4ed8" data-category="core"/>
+  <circle cx="120" cy="60"  r="25" fill="#60a5fa" data-category="petal"/>
+  <circle cx="120" cy="180" r="25" fill="#60a5fa" data-category="petal"/>
+  <circle cx="60"  cy="120" r="25" fill="#60a5fa" data-category="petal"/>
+  <circle cx="180" cy="120" r="25" fill="#60a5fa" data-category="petal"/>
+</svg>

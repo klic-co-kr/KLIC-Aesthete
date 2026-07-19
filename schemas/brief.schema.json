@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/brief.schema.json",
+  "title": "Preflight Brief",
+  "description": "Input to lib/preflight.mjs. artifact_type drives the geometric profile; unknown types fall back to a generic verifiable floor (recognized=false).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact_type"],
+  "properties": {
+    "artifact_type": { "type": "string", "description": "dashboard | marketing | report | diagram | poster; any other value → generic fallback" },
+    "format": { "enum": ["svg", "html", "pptx", "docx", "xlsx", "image"], "description": "output format; scopes format-specific negation gates (CSS-grid / token-block / web-UI tells are html-only). Omit → all gates emit." },
+    "brief": { "type": "string" },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "number", "minimum": 0 },
+        "h": { "type": "number", "minimum": 0 }
+      }
+    },
+    "density_intent": { "enum": ["low", "medium", "high"] },
+    "audience_frequency": { "enum": ["daily", "weekly", "once"] }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "outcome": "no-improvement",
+  "profile": "fix-geometry",
+  "iterations": 3,
+  "bestIteration": 1,
+  "passedCriteria": [
+    "boundary.overflowCount==0",
+    "collision.count==0",
+    "fluency.fluency>=0.6",
+    "harmony.harmonyScore>=0.5",
+    "hierarchy.clarity>=0.7",
+    "proximity.falseAdjacencyCount==0",
+    "proximity.fragmentedCount==0",
+    "whitespace.freeRatio>=0.25"
+  ],
+  "failingCriteria": [
+    {
+      "criterion": "balance.BM>=0.85",
+      "measured": 0.636
+    }
+  ],
+  "unmeasuredCriteria": [
+    "similarity.inconsistentGroups==0"
+  ],
+  "totalWeightedViolation": {
+    "start": 9.5,
+    "best": 0.5
+  },
+  "frozenNodes": [],
+  "skippedFixes": [],
+  "stoppedReason": "no-improvement at iter 3",
+  "iterations_log": [
+    {
+      "iter": 0,
+      "cost": 9.5,
+      "applied": 0,
+      "freeRatio": 0.829
+    },
+    {
+      "iter": 1,
+      "cost": 0.5,
+      "applied": 0,
+      "freeRatio": 0.774
+    },
+    {
+      "iter": 2,
+      "cost": 0.5,
+      "applied": 0,
+      "freeRatio": 0.774
+    }
+  ],
+  "input": "examples/catalog-fixable.layout.json",
+  "contract": "examples/catalog.contract.json",
+  "output": "/mnt/d/DEV/acc0mplish/catalog-fixable.layout.fixed.json"
+}

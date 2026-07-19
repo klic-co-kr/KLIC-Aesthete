@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/common.schema.json",
+  "title": "Aesthete Shared Definitions",
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$" },
+    "bbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number", "minimum": 0 },
+        "h": { "type": "number", "minimum": 0 }
+      }
+    },
+    "op": { "enum": ["==", ">=", "<="] },
+    "nodeKind": { "enum": ["text", "box", "icon", "container", "image", "decor"] },
+    "nodeShape": { "enum": ["rect", "circle", "ellipse", "path", "line", "image", "text"] },
+    "coverage": { "enum": ["measured", "partial", "unmeasurable"] },
+    "fixMode": { "enum": ["autoFixable", "suggestionOnly"] },
+    "role": { "enum": ["heading", "body", "caption", "decor", "control"] },
+    "severity": { "enum": ["high", "medium", "low"] }
+  }
+}

@@ -1,0 +1,17 @@
+node_modules/
+dist/
+# runtime per-run snapshots (pre-fix); examples/ is committed as reference
+versions/
+# tuner-generated cognition params (machine state)
+skill-params.json
+*.log
+.DS_Store
+out.svg
+# claude-mem auto-generated context — ignore nested copies, keep the root instruction file
+**/CLAUDE.md
+!/CLAUDE.md
+# preflight diversification rotation log (per-project runtime state)
+.aesthete/
+# stray packaging scaffolding + downloaded fixtures (not part of the core project)
+packages/
+examples/validation-svg/carpo-*.svg
