@@ -15,7 +15,10 @@
     "lint": "bun lib/lint.mjs",
     "tune": "bun lib/tune.mjs",
     "harness": "bun lib/harness.mjs",
-    "emit": "bun lib/emit.mjs"
+    "emit": "bun lib/emit.mjs",
+    "pre": "bun lib/skill-pre.mjs",
+    "post": "bun lib/skill-post.mjs",
+    "gate": "bun lib/skill-gate.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1",

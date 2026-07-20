@@ -7,7 +7,7 @@
 
 ![Aesthete Icons](./examples/icon.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · `bun run test` → 204 pass ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **244 pass** ✅
 
 ---
 
@@ -53,9 +53,16 @@
 
 ```bash
 bun install
-bun run test        # golden + 204 단위/폐루프/강건성 테스트 (bun:test + expect)
+bun run test
 
-# 측정 — 확장자로 도메인 자동 감지 (.json=ALT, .svg, .pptx, .html, .png …)
+# 에이전트 원샷 (권장)
+bun lib/skill-pre.mjs examples/dashboard-brief.json --out-dir /tmp/ae-pre
+bun lib/skill-post.mjs examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json --out-dir /tmp/ae-bad
+bun lib/skill-gate.mjs examples/catalog-good.layout.json --out-dir /tmp/ae-g
+
+# 전체 규칙: docs/agent-llm-usage.md
+
+# 엔진 직접
 bun lib/measure.mjs examples/catalog-bad.layout.json
 bun lib/measure.mjs poster.svg
 bun lib/measure.mjs deck.pptx
@@ -164,6 +171,18 @@ test/            bun:test + golden.mjs (zero-dep)
 
 ## CLI 명령어
 
+### 에이전트 facade (권장)
+
+| 명령 | 설명 |
+|---|---|
+| `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR]` | 사전 → bullets + contract |
+| `bun lib/skill-post.mjs <artifact> [--contract c] [--out-dir DIR]` | 사후 → decision (비파괴) |
+| `bun lib/skill-gate.mjs <artifact>` | CI exit |
+
+플레이북: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md)
+
+### 엔진
+
 | 명령 | 설명 |
 |---|---|
 | `bun lib/measure.mjs <file> [report.json] [--profile <name>] [--symmetry]` | 측정 — 확장자로 도메인 자동 감지. `--profile` 적용. `--symmetry`: 아이콘/기하 전용 대칭 축 opt-in(레이아웃은 의도적 비대칭이 많아 기본 제외) |
@@ -202,6 +221,8 @@ test/            bun:test + golden.mjs (zero-dep)
 ---
 
 ## 참조 논문 (Cognitive Psychology & Neuro-Symbolic AI)
+
+> 수식 **동기** 출처 (인간 미학 증명 아님). LLM 맵: [docs/refs/hci-cognition.md](./docs/refs/hci-cognition.md) · 사용법: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md).
 
 ### 인지 미학·게슈탈트·Processing Fluency
 

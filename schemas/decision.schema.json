@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/decision.schema.json",
+  "title": "Aesthete Decision Bundle",
+  "description": "Output of lib/skill-post.mjs / skill-gate.mjs (aesthete.decision/v1).",
+  "type": "object",
+  "required": ["schema", "schema_version", "decision", "reasons", "scores", "next"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "aesthete.decision/v1" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "decision": { "enum": ["regenerate", "fix_geometry", "pass", "human"] },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code"],
+        "properties": {
+          "code": { "type": "string" },
+          "tier": { "type": "string" },
+          "detail": { "type": "string" },
+          "fixable": { "type": "boolean" }
+        }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "properties": {
+        "hardIntegrityScore": { "type": ["number", "null"] },
+        "measuredAestheticScore": { "type": ["number", "null"] },
+        "coverageScore": { "type": ["number", "null"] }
+      }
+    },
+    "paths": { "type": "object" },
+    "next": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "enum": ["run_fix_p0", "rewrite_generator", "stop", "ask_human"] },
+        "fix_cmd": { "type": "array", "items": { "type": "string" } },
+        "loop_hint_max": { "type": "integer" }
+      }
+    }
+  }
+}

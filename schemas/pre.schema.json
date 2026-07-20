@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/pre.schema.json",
+  "title": "Aesthete Pre Bundle",
+  "description": "Output of lib/skill-pre.mjs (aesthete.pre/v1).",
+  "type": "object",
+  "required": ["schema", "schema_version", "artifact_type", "prompt_bullets", "structure"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "aesthete.pre/v1" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "recognized": { "type": "boolean" },
+    "artifact_type": { "type": "string" },
+    "directive": { "type": "string" },
+    "structure": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "shape": { "type": "string" },
+        "source": { "type": "string" }
+      }
+    },
+    "contract_path": { "type": ["string", "null"] },
+    "prompt_bullets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "negation": { "type": "object" },
+    "budget": { "type": "object" },
+    "optional": { "type": "object" }
+  }
+}

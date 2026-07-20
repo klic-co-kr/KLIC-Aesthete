@@ -7,7 +7,7 @@
 
 ![Aesthete Icons](./examples/icon.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · `bun run test` → 204 pass ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **244 pass** ✅
 
 ---
 
@@ -53,9 +53,21 @@ See [`DESIGN.md` §0](./DESIGN.md) for the full positioning.
 
 ```bash
 bun install
-bun run test        # golden + 204 unit / closed-loop / robustness tests (bun:test + expect)
+bun run test
 
-# measure — domain auto-detected by extension (.json=ALT, .svg, .pptx, .html, .png …)
+# Agent one-shots (recommended)
+bun lib/skill-pre.mjs examples/dashboard-brief.json --out-dir /tmp/ae-pre
+# pre.json + contract.json + prompt_bullets.md
+
+bun lib/skill-post.mjs examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json --out-dir /tmp/ae-bad
+# decision.json (input NOT mutated)
+
+bun lib/skill-gate.mjs examples/catalog-good.layout.json --out-dir /tmp/ae-g
+# exit 0 = pass; bad layouts exit 1
+
+# Full LLM rules: docs/agent-llm-usage.md
+
+# Engine direct
 bun lib/measure.mjs examples/catalog-bad.layout.json
 bun lib/measure.mjs poster.svg
 bun lib/measure.mjs deck.pptx
@@ -166,6 +178,18 @@ test/            bun:test + golden.mjs (zero-dep)
 
 ## CLI
 
+### Agent facade (recommended)
+
+| Command | Description |
+|---|---|
+| `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR] [--diversify]` | Pre one-shot → pre.json + contract.json + prompt_bullets.md |
+| `bun lib/skill-post.mjs <artifact> [--contract c] [--structure ID] [--lint] [--vuln-gate] [--out-dir DIR]` | Post one-shot → decision.json (non-destructive). No LLM judging |
+| `bun lib/skill-gate.mjs <artifact> [same flags]` | CI — pass=0; fix_geometry or regenerate=1; human or usage=2 |
+
+package.json scripts: pre / post / gate. Short skills: skills/aesthete-*/SKILL.md. Playbook: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md).
+
+### Engine
+
 | Command | Description |
 |---|---|
 | `bun lib/measure.mjs <file> [report.json] [--profile <name>] [--symmetry]` | measure — domain auto-detected by extension. Applies `--profile`. `--symmetry`: opt-in icon/geometric symmetry axis (layouts are often deliberately asymmetric, so off by default) |
@@ -205,15 +229,18 @@ The cognitive-skill framework is implemented as working, deterministic skills �
 
 ## Reference papers (Cognitive Psychology & Neuro-Symbolic AI)
 
+> Formulas are **motivated** by these works — not a proof of human aesthetic truth. Agent map: [docs/refs/hci-cognition.md](./docs/refs/hci-cognition.md).
+
 ### Cognitive aesthetics · Gestalt · Processing Fluency
 
 | Paper | Skill link |
 |---|---|
 | Wertheimer, M. (1923). *Untersuchungen zur Lehre von der Gestalt II.* — Gestalt proximity law | `proximity` |
-| Ngo, D. C. L. (2001). *Aesthetic Measures for Assessing Graphic Screens.* — BM symmetrical-balance formula | `balance` |
-| Reber, R., Schwarz, N., & Winkielman, P. (2004). *Processing Fluency and Aesthetic Pleasure: Is Beauty in the Perceiver's Processing Experience?* **Personality and Social Psychology Review.** — processing-fluency theory | `whitespace`, `fluency`, `hierarchy` |
+| Ngo et al. (2000). *Aesthetic Measures for Assessing Graphic Screens.* JISE 16 — [doi:10.1688/JISE.2000.16.1.6](https://doi.org/10.1688/JISE.2000.16.1.6) | `balance` (BM) |
+| Reber, Schwarz, Winkielman (2004). *Processing Fluency…* PSPR 8(4) — [doi:10.1207/s15327957pspr0804_3](https://doi.org/10.1207/s15327957pspr0804_3) · [PubMed](https://pubmed.ncbi.nlm.nih.gov/15582859/) | `whitespace`, `fluency`, `hierarchy` |
 | Topolinski, S., & Strack, F. (2009). *Motor Fluency.* — motor-fluency extension | `fluency` |
-| Treisman, A., & Gelade, G. (1980). *A Feature-Integration Theory of Attention.* — visual-search stage | `hierarchy` |
+| Treisman and Gelade (1980). *Feature-Integration Theory…* Cogn Psychol — [doi:10.1016/0010-0285(80)90005-5](https://doi.org/10.1016/0010-0285(80)90005-5) | `hierarchy` |
+| Sweller, J. (1988). *Cognitive load during problem solving…* Cognitive Science 12(2) — [Wiley](https://onlinelibrary.wiley.com/doi/abs/10.1207/s15516709cog1202_4) | CLT → P0 hard / clutter framing |
 | Birkhoff, G. D. (1933). *Aesthetic Measure.* — M = O/C (order/complexity) | `harmony` |
 | Fan, T. et al. — visual-complexity research (quadtree whitespace application) | `whitespace` |
 | Symmetry (2024). Balanced composition and early visual processing. | `balance` |
