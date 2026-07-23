@@ -45,12 +45,37 @@ test('FP suite: vuln + slop on the same artifact → disjoint findings (H1 dedup
   for (const id of slopIds) expect(vulnIds.has(id)).toBe(false);
 });
 
-test('FP suite: all-unmeasurable → human_coverage, no false-pass', () => {
+test('FP suite: coverageScore:0 → human via GEOMETRY COVERAGE_ZERO (pre-existing), not via slop', () => {
+  // v1 boundary: on a non-html medium slop is wholesale unmeasurable (coverage.html='unmeasurable').
+  // The human decision here is driven by the PRE-EXISTING coverageScore:0 escalation in
+  // skill-decision.mjs (COVERAGE_ZERO), NOT by the slop fold — slop is opt-in HTML-only and does
+  // NOT independently escalate on a non-html medium (same boundary as vuln, which also does not
+  // escalate an unmeasurable axis). The ONLY slop path to human is the html-measured `var()`-indirect
+  // branch, proven by the var()-indirect test above (spec §4 C1).
+  const slopReport = scanSlop({ alt, medium: 'svg', html: '' });
+  expect(slopReport.summary.coverage.html).toBe('unmeasurable');
   const d = foldDecision({
     report: { summary: { hardIntegrityScore: 1, coverageScore: 0 } },
-    slopReport: scanSlop({ alt, medium: 'svg', html: '' }),
+    slopReport,
   });
   expect(d.decision).toBe('human');
+  expect(d.reasons.some((r) => r.code === 'COVERAGE_ZERO')).toBe(true);
+});
+
+test('FP suite: non-html slop unmeasurable does NOT force human (v1 boundary — opt-in HTML-only)', () => {
+  // Locks the v1 boundary: when geometry coverage is fine (coverageScore:1) but slop is wholesale
+  // unmeasurable on a non-html medium, slop MUST NOT escalate to human. A future change that
+  // silently flipped this would break the opt-in HTML-only scope. Contrast with the var()-indirect
+  // case above, which IS html-measured and DOES escalate (spec §4 C1).
+  const slopReport = scanSlop({ alt, medium: 'svg', html: '' });
+  expect(slopReport.summary.coverage.html).toBe('unmeasurable');
+  expect(slopReport.findings.length).toBe(0);
+  const d = foldDecision({
+    report: { summary: { hardIntegrityScore: 1, coverageScore: 1 } },
+    slopReport,
+  });
+  expect(d.decision).not.toBe('human');
+  expect(d.decision).toBe('pass');
 });
 
 // Recursion guard: the smoke test below spawns `bun test ... test/slop-fp.test.mjs`, which would
