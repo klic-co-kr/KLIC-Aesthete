@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/slop-report.schema.json",
+  "title": "Slop Report",
+  "description": "Output of lib/slop.mjs. Deterministic advisory AI-slop signature report. Mirrors vuln-report shape. NOT a gate — the decision fold consumes it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "summary", "findings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slopCount", "byTier", "coverage", "advisory", "uncalibrated", "profile", "unmeasured", "suppressed"],
+      "properties": {
+        "slopCount": { "type": "integer", "minimum": 0 },
+        "byTier": { "type": "object", "properties": { "P0": { "type": "integer" }, "P1": { "type": "integer" }, "P2": { "type": "integer" } } },
+        "coverage": { "type": "object", "required": ["html"], "properties": { "html": { "enum": ["measured", "unmeasurable"] }, "reason": { "type": "string" } } },
+        "artifact_type": { "type": ["string", "null"] },
+        "suppressed": { "type": "array" },
+        "advisory": { "const": true },
+        "uncalibrated": { "const": true },
+        "profile": { "const": "measure-only" },
+        "unmeasured": { "type": "array", "items": { "type": "object", "required": ["id", "tier", "reason"], "properties": { "id": { "type": "string" }, "tier": { "enum": ["P0", "P1", "P2"] }, "reason": { "type": "string" } } } }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "severity", "tier", "signal", "threshold", "nodes", "remediation", "mode"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "severity": { "enum": ["high", "medium", "low"] },
+          "tier": { "enum": ["P0", "P1", "P2"] },
+          "signal": { "type": "number" },
+          "threshold": { "type": "number" },
+          "nodes": { "type": "array", "items": { "type": "string" } },
+          "remediation": { "type": "string" },
+          "mode": { "const": "suggestionOnly" }
+        }
+      }
+    }
+  }
+}

@@ -20,6 +20,17 @@
       }
     },
     "density_intent": { "enum": ["low", "medium", "high"] },
-    "audience_frequency": { "enum": ["daily", "weekly", "once"] }
+    "audience_frequency": { "enum": ["daily", "weekly", "once"] },
+    "slop": {
+      "type": "object",
+      "description": "Optional slop-axis config. thresholds override lib/slop.mjs DEFAULT_THRESHOLDS.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "gate": { "type": "boolean" },
+        "autofix": { "type": "boolean" },
+        "thresholds": { "type": "object" }
+      }
+    }
   }
 }

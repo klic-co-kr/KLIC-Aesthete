@@ -81,3 +81,25 @@ test('evaluate: criterion on an unmeasurable skill is UNMEASURED, never a vacuou
   expect(e.unmeasured).toContain('hierarchy.clarity>=0.7');
   expect(e.allPass).toBe(false);
 });
+
+test('contract: slop criterion honored when report.skills.slop present + measured', () => {
+  const rep = { summary: {}, skills: { slop: { score: 1, coverage: 'measurable', metrics: { p0Count: 0 }, violations: [] } } };
+  const contract = { schema_version: 1, brief: '', criteria: [{ skill: 'slop', metric: 'p0Count', op: '==', threshold: 0, weight: 1 }] };
+  const e = evaluate(rep, contract);
+  expect(e.allPass).toBe(true);
+});
+
+test('contract: slop criterion fails when p0Count>0', () => {
+  const rep = { summary: {}, skills: { slop: { score: 0, coverage: 'measurable', metrics: { p0Count: 2 }, violations: [] } } };
+  const contract = { schema_version: 1, brief: '', criteria: [{ skill: 'slop', metric: 'p0Count', op: '==', threshold: 0, weight: 1 }] };
+  const e = evaluate(rep, contract);
+  expect(e.allPass).toBe(false);
+});
+
+test('contract: slop criterion → unmeasured when coverage unmeasurable (no false-pass)', () => {
+  const rep = { summary: {}, skills: { slop: { score: 1, coverage: 'unmeasurable', metrics: {}, violations: [] } } };
+  const contract = { schema_version: 1, brief: '', criteria: [{ skill: 'slop', metric: 'p0Count', op: '==', threshold: 0, weight: 1 }] };
+  const e = evaluate(rep, contract);
+  expect(e.criteria[0].status).toBe('unmeasured');
+  expect(e.allPass).toBe(false);
+});
