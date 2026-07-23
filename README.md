@@ -39,7 +39,7 @@ target (SVG/PPTX/HTML/…) ──adapter──► ALT (Abstract Layout Tree)
 | Artifact | Control point | Owner |
 |---|---|---|
 | SVG / HTML / PPTX / ALT | **post-hoc geometric correction** | **aesthete's core purpose ✅** |
-| Raster images (ChatGPT / Nanobanana / …) | **pre-generation prompt guidance** | a separate *design-guideline* domain (aesthete ❌ — pixels have no geometry) |
+| Raster images (ChatGPT / Nanobanana / …) | **pre-generation prompt guidance + post-hoc AI-tell detection** | separate concern — engine is pure-JS no-browser and can't host the vision model these tells need (anatomical errors, frequency-domain fingerprints). Not a "no geometry" issue: the image adapter already extracts quadtree geometry from pixels for layout-composition measurement; raster AI-tell detection is a different problem that needs vision. See [slop v2 spec §5](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md#5-raster-images--out-of-scope-with-documented-reason). |
 
 - **Does:** post-hoc measurement/correction of structured artifacts · bias-free objective judgement · iterative correction inside an agent loop (incremental improvement).
 - **Does not:** generate/edit raster-image aesthetics · pre-generation prompt design guidelines for image generation.
@@ -219,7 +219,17 @@ The correction `outcome` enum: `pass | best-effort | no-improvement | budget-exh
 - HTML rendered bbox, image-region auto-extraction, and pixel local-variance need a browser/CV → replaced by occupancy quadtree / declared geometry (noted in metadata).
 - **Export is half** (see the domain table above): the only lossless round-trip is ALT (JSON). svg/pptx export is lossy re-emission (flattened / minimal package); docx/xlsx/image have no export at all. Import-only measurement engine + ALT as native.
 - **Validation is not a "validity proof."** `examples/validation-corpus.json` (shipped demo) has synthetic-placeholder `humanScore`, so its correlation is **circular** — it only proves the harness runs. `examples/ground-truth-corpus.json` replaces labels with injected-defect severity (non-circular) and beats the predict-mean baseline (0.0) at ρ≈0.33 — but even that only demonstrates **severity-calibration / orthogonality / no-false-positives on engineered structural defects**, not real human aesthetic preference. ρ=0.33 is a "weak-to-moderate, necessary-not-sufficient" signal, not a proof. Plug in real human ratings → then it's validation. The Phase 4 harness (`lib/bradley-terry.mjs` + `scripts/build-human-corpus.mjs`) is the plumbing: pairwise human votes → Bradley-Terry humanScore → `validate.mjs` correlation. **Honest scope**: it validates ALT-LAYOUT preference (the engine's direct domain), not screenshot aesthetic preference (that needs the Phase 3 image/vision hook to turn screenshots into ALTs, plus real raters — both external). `validate.mjs` flags `smallSample` (n<30) so a high ρ from a few synthetic votes can't be misread as validation.
-- **Out of scope** (needs infrastructure): a real GRPO training loop (LLM training), physical multi-agent session isolation (this skill achieves the equivalent via "evaluator = arithmetic"), PPTX slide masters/themes.
+- **Slop detection is medium-specific, v1 = HTML only.** Slop tells differ by medium — HTML clichés (indigo→pink gradient, marketing lexicon, italic heading, fake-precision numbers) are not the same as PPTX tells (stock chrome, default theme colors) or SVG tells (template icon paths) or raster-image tells (anatomical errors, frequency-domain fingerprints). Each medium needs its own scanner + calibrated signature set. v1 ships HTML only because that's the only calibrated set; slop is a sibling measurement surface alongside measure/vuln/structure (separate module for code-organization reasons — different input/output shape and consumers — not because of any geometric incompatibility). Roadmap:
+
+  | Medium | Tells | Detection | Status |
+  |---|---|---|---|
+  | HTML / web | gradient cliché, marketing lexicon, italic heading, fake-precision, gradient border | literal-presence source scan (regex) | **v1 ✅** |
+  | PPTX | stock chrome, default theme colors, bullet-overload layouts | OOXML unpack + pattern match | v2 |
+  | SVG | AI-default gradient stops, template icon paths | path / stop analysis | v2 |
+  | Raster (ChatGPT / Nanobanana / …) | anatomical errors, texture artifacts, lighting inconsistencies, frequency fingerprints | **vision model required** (C2PA / frequency analysis / GAN fingerprints) | **out of scope** — pure-JS no-browser engine can't host a vision model; Phase 3 image/vision hook is the prerequisite |
+
+  See [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md) for the v2 scanner design.
+- **Out of scope** (needs infrastructure): a real GRPO training loop (LLM training), physical multi-agent session isolation (this skill achieves the equivalent via "evaluator = arithmetic"), PPTX slide masters/themes, **raster-image slop detection** (vision model required).
 
 ---
 
