@@ -52,14 +52,14 @@ const tmp = (name) => {
   return path.join(d, name);
 };
 
-test('skill-post: html slop → slop.json written + decision=regenerate', async () => {
+test('skill-post: html slop → slop finding + decision=regenerate (runPost read-only)', async () => {
   const htmlPath = tmp('bad.html');
   fs.writeFileSync(htmlPath, `<style>.h{background:linear-gradient(135deg,#6366f1,#ec4899)}</style><h1>🚀</h1>`);
   const outDir = tmp('out-bad');
   const r = await runPost(htmlPath, { flags: { 'slop-gate': true }, outDir });
   expect(r.slopReport.findings.some((f) => f.id === 'slop.palette.gradient')).toBe(true);
   expect(r.decision.decision).toBe('regenerate');
-  expect(fs.existsSync(path.join(outDir, 'slop.json'))).toBe(true);
+  expect(r.paths.slop).toBe(path.join(outDir, 'slop.json'));
 });
 
 test('skill-post: non-destructive — input bytes unchanged', async () => {
