@@ -17,7 +17,7 @@
         "additionalProperties": false,
         "required": ["skill", "metric", "op", "threshold", "weight"],
         "properties": {
-          "skill": { "type": "string" },
+          "skill": { "type": "string", "description": "Measurement skill id (collision, boundary, hierarchy, …) or 'slop' for slop-tier criteria." },
           "metric": { "type": "string" },
           "op": { "$ref": "common.schema.json#/$defs/op" },
           "threshold": { "type": "number" },

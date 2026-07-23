@@ -24,6 +24,7 @@
     },
     "skills": {
       "type": "object",
+      "description": "Per-skill results. Slop may appear as 'slop' (coverage + metrics.p0Count) when a contract gates on it.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
