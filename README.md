@@ -5,7 +5,7 @@
 > A layout-aesthetics measurement and correction engine that encapsulates cognitive-aesthetics theory as **deterministic execution modules**.
 > Measuring, judging, and correcting are all pure geometric arithmetic — the evaluator is **formulas, not an LLM**, so post-hoc rationalization is structurally impossible.
 
-![Aesthete](./examples/hero.png)
+![Aesthete](./examples/hero-en.png)
 
 [SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **244 pass** ✅
 

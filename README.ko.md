@@ -5,7 +5,7 @@
 > 인지 미학 이론을 **결정론적 실행 모듈**로 캡슐화한 레이아웃 미학 측정·보정 엔진.
 > 측정·평가·보정이 전부 순수 기하학 산술 — 평가자는 LLM이 아니라 **수식**이라 사후 합리화가 구조적으로 불가능하다.
 
-![Aesthete](./examples/hero.png)
+![Aesthete](./examples/hero-ko.png)
 
 [SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **244 pass** ✅
 
