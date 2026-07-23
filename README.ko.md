@@ -39,7 +39,7 @@
 | 산출물 | 통제 시점 | 담당 |
 |---|---|---|
 | SVG / HTML / PPTX / ALT | **사후 기하 보정** | **aesthete 본령 ✅** |
-| 래스터 이미지 (ChatGPT/나노바나나 등) | **사전 프롬프트 가이드** | 별도 *design guideline* 영역 (aesthete ❌ — 픽셀엔 기하가 없음) |
+| 래스터 이미지 (ChatGPT/나노바나나 등) | **사전 프롬프트 가이드 + 사후 AI-tell 탐지** | 별도 관심사 — 엔진이 pure-JS no-browser라 이 tells(해부학 오류·주파수 영역 지문)에 필요한 비전 모델을 호스트 못 한다. "기하가 없어서"가 아니다: 이미지 어댑터가 이미 픽셀에서 쿼드트리 기하를 추출해 구도 측정에 쓴다. raster AI-tell 탐지는 아예 다른 문제로 비전이 필요. [slop v2 spec §5](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md#5-raster-images--out-of-scope-with-documented-reason) 참고. |
 
 - **한다**: 구조화 산출물 사후 측정·보정 · 합리화 없는 객관 판정 · 에이전트 루프 내 반복 보정(점진 개선).
 - **안 한다**: 래스터 이미지 미학 생성/편집 · 이미지 생성용 사전 프롬프트 design guideline.
@@ -212,7 +212,17 @@ test/            bun:test + golden.mjs (zero-dep)
 - HTML 실렌더링 bbox·이미지 영역 자동추출·픽셀 local-variance는 브라우저/CV 필요 → 점유 쿼드트리/선언 기하로 대체(메타에 명시).
 - **export는 반쪽** (위 도메인 표): 무손실 round-trip은 ALT(JSON)뿐. svg/pptx export는 손실 재출력(평탄화·최소패키지), docx/xlsx/image는 export 자체 없음. import-only 측정 엔진 + ALT가 네이티브.
 - **검증은 "유효성 증명"이 아니다**: `examples/validation-corpus.json`(shipped demo)의 `humanScore`는 synthetic placeholder라 상관이 **순환적** — 하네스가 돌아감을 보일 뿐. `examples/ground-truth-corpus.json`은 라벨을 주입 결함 심각도로 바꿔 비순환화했고 ρ≈0.33으로 predict-mean baseline(0.0)을 이긴다 — 하지만 이것도 **엔지니어링된 구조 결함에 대한 심각도 캘리브레이션·직교성·위양성 없음을 보일 뿐**, 실 인간 미학 선호를 검증한 게 아니다. ρ=0.33은 "필요충분 아닌 약~중간 신호"이지 증명이 아니다. 실 인간 평가를 끼우면 그때 검증. Phase 4 하네스(`lib/bradley-terry.mjs` + `scripts/build-human-corpus.mjs`)가 배관: 쌍체 인간 투표 → Bradley-Terry humanScore → `validate.mjs` 상관. **정직한 범위**: ALT-레이아웃 선호(엔진 직접 도메인)를 검증하지 스크린샷 미학 선호는 아님(후자는 Phase 3 비전 hook으로 스크린샷→ALT 전환 + 실 평가자 필요 — 둘 다 외부). `validate.mjs`가 `smallSample`(n<30) 플래그를 줘서 소수 synthetic vote의 고ρ가 검증으로 오독되지 않게 한다.
-- **범위 밖**(인프라 필요): 실제 GRPO 학습 루프(LLM 훈련), 물리적 다중 에이전트 세션 분리(본 스킬은 "평가자=산술"로 동등 효과 달성), PPTX 슬라이드 마스터/테마.
+- **slop 탐지는 매체별, v1 = HTML만**: slop tells는 매체마다 다르다 — HTML 클리셰(indigo→pink 그라디언트·마케팅 lexicon·이탤릭 헤딩·fake-precision 수치)가 PPTX tells(재고 chrome·기본 테마 색)나 SVG tells(템플릿 아이콘 path)나 raster-image tells(해부학 오류·주파수 영역 지문)와 다르다. 매체마다 자기 스캐너 + 보정된 시그니처 세트가 필요하다. v1이 HTML만 싣는 건 보정된 세트가 그것뿐이어서다. slop는 measure/vuln/structure와 나란히 있는 형제 측정 층이다 (별도 모듈인 이유는 코드 조직상 — 입력/출력 형태와 소비자가 달라서, 기하학적 비호환 때문이 아님). 로드맵:
+
+  | 매체 | tells | 탐지 방법 | 상태 |
+  |---|---|---|---|
+  | HTML / web | 그라디언트 클리셰·마케팅 lexicon·이탤릭 헤딩·fake-precision·그라디언트 보더 | 리터럴 소스 스캔 (regex) | **v1 ✅** |
+  | PPTX | 재고 chrome·기본 테마 색·글먹기 과다 레이아웃 | OOXML 풀기 + 패턴 매치 | v2 |
+  | SVG | AI 기본 그라디언트 정지·템플릿 아이콘 path | path / stop 분석 | v2 |
+  | Raster (ChatGPT / Nanobanana / …) | 해부학 오류·질감 artifact·조명 비일관성·주파수 지문 | **비전 모델 필요** (C2PA / 주파수 분석 / GAN 지문) | **범위 밖** — pure-JS no-browser 엔진은 비전 모델을 호스트할 수 없음; Phase 3 image/vision hook이 전제 |
+
+  v2 스캐너 설계는 [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md) 참고.
+- **범위 밖**(인프라 필요): 실제 GRPO 학습 루프(LLM 훈련), 물리적 다중 에이전트 세션 분리(본 스킬은 "평가자=산술"로 동등 효과 달성), PPTX 슬라이드 마스터/테마, **raster-image slop 탐지**(비전 모델 필요).
 
 ---
 
