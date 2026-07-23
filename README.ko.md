@@ -152,6 +152,7 @@ lib/
   tune.mjs       자가진화 튜너 (diff → skill-params.json)
   preflight.mjs  전처리 — artifact type → 타입별 contract + 기하 budget + 금지 기본값(생성 전 목표)
   vuln.mjs       취약점 엔진 — 이산 known-bad 패턴 탐지(negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche)
+  slop.mjs       AI-slop 시그니처 엔진 — vuln과 동형(시그니처 fold + overridable thresholds + advisory). v1 = HTML 리터럴 존재 스캔 전용(SVG/PPTX/LLM-judge = v2). 4축: palette(클리셰 indigo→violet→pink 그라디언트·glassmorphism·그라디언트 보더 [카드 상단 바 / 콜아웃 좌측 레일]), decoration(헤딩 내 이모지·이탤릭 헤딩 [Hallmark 게이트 38a — top AI tell]·아이콘 포화·장식 애니메이션), copy(LLM 마케팅 lexicon + fake-precision 수치[다중-9 % / 라운드 Nx 배수 — 연구 기반 tell] — 본문+헤딩 커버, 분리자 정규화; generic LLM-judge = v2 stub → 항상 unmeasured), template(trusted-by 로고 띠·hero 3종). 미보정 — 보수적 존재 floor, corpus 튜닝은 v2
   profiles.mjs   실행 프로파일 매트릭스 — 층마다 허용/금지/성공의 진실(measure-only/fix-geometry/llm-judge/human-gate)
   validate.mjs   검증 하네스 — A/B/C/D 점수 변형을 인간 평가 corpus 대비 상관 비교(demo corpus는 synthetic placeholder)
   diffview.mjs   before/after 한화면 뷰어 — fix 전후 SVG를 같은 adapter로 round-trip해 한 HTML에 좌우 비교+점수 delta
@@ -196,6 +197,7 @@ test/            bun:test + golden.mjs (zero-dep)
 | `bun lib/overlay/svg.mjs <original.svg> <fixed.alt.json> [out.svg]` | **SVG overlay export** — fix된 ALT를 원본 svg 위에 `<g transform>` wrap로 적용(path·gradient·stroke 평탄화 없이 보존). closed-loop 안전: `fix`는 여전히 `bbox`를 고치고(measure가 읽음), 각 import 노드는 `_originalBbox`를 가지며 overlay가 그 delta로 transform을 도출 |
 | `bun lib/overlay/pptx.mjs <original.pptx> <fixed.alt.json> [out.patches.json] [--slide N]` | **PPTX overlay export** — fix된 ALT를 원본 pptx에 적용하는 OfficeCLI `batch` 매니페스트(`{op:set, path:/slide[N]/shape[M], props:{x,y,w,h in EMU}}`) 출력(마스터·테마·차트 보존). 원본을 재파싱해 각 `<p:sp>`의 진짜 OfficeCLI shape-index를 매핑(중간 pic 포함 대응); positional 매칭, 불일치 시 throw |
 | `bun lib/vuln.mjs <layout> [vuln-report.json] [--type dashboard\|marketing\|report\|diagram\|poster]` | **취약점 엔진** — 이산 known-bad 패턴(negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header). `--type`으로 맥락 주입 시 타입 의도에 모순되는 시그니처 억제(위양성 방지). advisory, `measure-only` |
+| `bun lib/slop.mjs <artifact.html> [slop.json] [--type T] [--medium html]` | **slop 시그니처 엔진** — 4축(palette · decoration · copy · template) advisory AI-slop 탐지. v1: HTML 리터럴 존재 스캔 전용(SVG/PPTX/LLM-judge = v2); 모든 threshold는 `opts.thresholds[id]`로 overridable; 모든 finding은 `suggestionOnly`. `measure-only`, 미보정 |
 | `bun lib/validate.mjs [corpus.json] [validate-report.json]` | **검증 하네스** — A/B/C/D 점수 변형(overallScore/measuredAestheticScore/hardIntegrityScore/coverageScore)을 corpus `humanScore`와 상관 비교 + baseline. demo corpus는 synthetic |
 | `bun lib/diffview.mjs <layout\|svg> [out.html] [--contract c.json]` | **before/after 뷰어** — fix 전후 SVG를 같은 adapter로 round-trip해 좌우 한 화면에 + 점수 before→after delta. `out.html`을 브라우저로 열면 보정 효과 시각 비교 |
 
