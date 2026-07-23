@@ -1,6 +1,5 @@
 import { test, expect } from 'bun:test';
 import { scanSlop, DEFAULT_THRESHOLDS } from '../lib/slop.mjs';
-import { scanAlt } from '../lib/vuln.mjs';
 
 const alt = { meta: { canvas: { w: 1000, h: 600 } }, nodes: [] };
 

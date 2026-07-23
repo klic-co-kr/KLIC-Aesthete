@@ -2,7 +2,6 @@ import { test, expect } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { scanSlop } from '../lib/slop.mjs';
-import { scanAlt } from '../lib/vuln.mjs';
 import { foldDecision } from '../lib/skill-decision.mjs';
 
 const FIX = (n) => fs.readFileSync(path.join(import.meta.dir, '..', 'examples', 'slop-html', n), 'utf8');
