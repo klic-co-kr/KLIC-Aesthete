@@ -46,3 +46,15 @@ test('scan: empty input is safe (no throw, empty ctx)', () => {
   expect(c.gradientsLiteral).toEqual([]);
   expect(c.svgIconCount).toBe(0);
 });
+
+test('scan: repeated calls on identical link-bearing input are byte-identical (determinism)', () => {
+  const html = `<link rel="stylesheet" href="styles.css">`;
+  const a = scanHtmlSource(html);
+  const b = scanHtmlSource(html);
+  const c = scanHtmlSource(html);
+  const d = scanHtmlSource(html);
+  expect(a).toEqual(b);
+  expect(b).toEqual(c);
+  expect(c).toEqual(d);
+  expect(a.measuredNotes.length).toBeGreaterThan(0); // the link note must NOT drop on alternating calls
+});
