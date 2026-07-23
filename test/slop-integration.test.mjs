@@ -41,3 +41,38 @@ test('decision: slop priority 60 ties stably with vuln (config order, not random
   expect(a.decision).toBe(b.decision); // byte-stable
   expect(a.reasons).toEqual(b.reasons);
 });
+
+import { runPost } from '../lib/skill-post.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const tmp = (name) => {
+  const d = path.join(import.meta.dir, '.tmp-slop-it');
+  fs.mkdirSync(d, { recursive: true });
+  return path.join(d, name);
+};
+
+test('skill-post: html slop → slop.json written + decision=regenerate', async () => {
+  const htmlPath = tmp('bad.html');
+  fs.writeFileSync(htmlPath, `<style>.h{background:linear-gradient(135deg,#6366f1,#ec4899)}</style><h1>🚀</h1>`);
+  const outDir = tmp('out-bad');
+  const r = await runPost(htmlPath, { flags: { 'slop-gate': true }, outDir });
+  expect(r.slopReport.findings.some((f) => f.id === 'slop.palette.gradient')).toBe(true);
+  expect(r.decision.decision).toBe('regenerate');
+  expect(fs.existsSync(path.join(outDir, 'slop.json'))).toBe(true);
+});
+
+test('skill-post: non-destructive — input bytes unchanged', async () => {
+  const htmlPath = tmp('nd.html');
+  const before = `<style>.g{backdrop-filter:blur(8px)}</style><p>ok</p>`;
+  fs.writeFileSync(htmlPath, before);
+  await runPost(htmlPath, { flags: { slop: true }, outDir: tmp('out-nd') });
+  expect(fs.readFileSync(htmlPath, 'utf8')).toBe(before);
+});
+
+test('skill-post: alt-only input (svg/pptx v1) → slop unmeasurable, no crash', async () => {
+  const altPath = tmp('clean.alt.json');
+  fs.writeFileSync(altPath, JSON.stringify({ schema_version: 1, meta: { canvas: { w: 1000, h: 600 }, source: 'abstract' }, nodes: [] }));
+  const r = await runPost(altPath, { flags: { slop: true }, outDir: tmp('out-alt') });
+  expect(r.slopReport.summary.coverage.html).toBe('unmeasurable');
+});
