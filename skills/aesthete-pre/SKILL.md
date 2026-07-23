@@ -26,3 +26,12 @@ bun lib/skill-pre.mjs <brief.json> --out-dir DIR
 
 ## 다음
 생성기 돌린 뒤 → `aesthete-post` + `--contract DIR/contract.json`
+
+## Slop prevention (secondary)
+
+`aesthete-pre` emits anti-slop generation constraints in `prompt_bullets` + `negation`, and a
+`slop-test.md` self-check checklist next to `pre.json`.
+
+- **Primary prevention:** honor `prompt_bullets` + `negation` when generating.
+- **Secondary (non-enforced):** run `slop-test.md` yourself. It is NOT a gate — self-certification
+  has limits. The real gate is the deterministic post-hoc scan: `aesthete-post --slop-gate`.

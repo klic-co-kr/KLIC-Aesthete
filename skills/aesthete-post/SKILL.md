@@ -22,6 +22,18 @@ bun lib/skill-post.mjs <artifact> --contract PRE/contract.json --out-dir POST
 | `human` | reasons 들고 escalate |
 
 ## 금지
-- decision을 미학 감으로 뒤집기  
-- fix 없이 post만 반복  
+- decision을 미학 감으로 뒤집기
+- fix 없이 post만 반복
 - `--vuln-gate`/`--structure` 기본 on 착각 (기본 off)
+
+## Slop detection (post-hoc, HTML, deterministic)
+
+`aesthete-post` scans raw HTML for AI-slop signatures (cliché gradient, glassmorphism, emoji in
+headings, icon saturation, decorative animation, cliché lexicon, trusted-by, hero-trio).
+
+- `--slop` : write advisory `slop.json` (no decision change).
+- `--slop-gate` : P0 measured-fail (always) + P1 measured-fail → `regenerate` (priority 60).
+- `--slop-autofix` : (v1 minimal) reserved for narrow P0 emoji-strip; off by default.
+
+`var()`-indirect / external-stylesheet gradients → `unmeasured` (never a false fail).
+SVG/PPTX → `unmeasurable` in v1 (HTML only).

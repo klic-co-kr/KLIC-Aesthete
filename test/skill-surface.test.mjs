@@ -136,3 +136,26 @@ test('negationBundle + renderPromptBullets non-empty', () => {
   expect(bullets.some((b) => b.includes('freeRatio'))).toBe(true);
   expect(negationBundle({ color: ['rainbow'] }).bullets.length).toBe(1);
 });
+
+// ---- slop-pre (Task 11) ----
+const slopTmpDir = () => { const d = path.join(import.meta.dir, '.tmp-slop-pre'); fs.mkdirSync(d, { recursive: true }); return d; };
+
+test('skill-pre: html brief → prompt_bullets include slop constraints + slop-test.md emitted', () => {
+  const outDir = path.join(slopTmpDir(), 'out');
+  const brief = { artifact_type: 'marketing', format: 'html', brief: 'hero landing' };
+  const { bundle } = runPre(brief, { outDir });
+  expect(bundle.prompt_bullets.some((b) => /gradient|emoji|glass/i.test(b))).toBe(true);
+  expect(fs.existsSync(path.join(outDir, 'slop-test.md'))).toBe(true);
+});
+
+test('skill-pre: same brief twice (no diversify) → byte-identical slop bullets (deterministic)', () => {
+  const a = runPre({ artifact_type: 'report', format: 'html' }, {}).bundle.prompt_bullets;
+  const b = runPre({ artifact_type: 'report', format: 'html' }, {}).bundle.prompt_bullets;
+  expect(a).toEqual(b);
+});
+
+test('skill-pre: non-html brief → slop universal bullets only (no html-only extras)', () => {
+  const { bundle } = runPre({ artifact_type: 'report', format: 'svg' }, {});
+  expect(bundle.prompt_bullets.some((b) => /icon/i.test(b))).toBe(false);
+  expect(bundle.prompt_bullets.some((b) => /gradient|emoji/i.test(b))).toBe(true); // universal present
+});
