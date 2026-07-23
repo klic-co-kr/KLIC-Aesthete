@@ -140,12 +140,37 @@ test('negationBundle + renderPromptBullets non-empty', () => {
 // ---- slop-pre (Task 11) ----
 const slopTmpDir = () => { const d = path.join(import.meta.dir, '.tmp-slop-pre'); fs.mkdirSync(d, { recursive: true }); return d; };
 
-test('skill-pre: html brief → prompt_bullets include slop constraints + slop-test.md emitted', () => {
+test('skill-pre: html brief → prompt_bullets include slop constraints + slopTestMd contract in-memory (write-free runPre)', () => {
   const outDir = path.join(slopTmpDir(), 'out');
+  // Clean slate: the tmp dir is reused across runs, so a stale slop-test.md from a
+  // prior (pre-fix) runPre would mask the write-free assertion below.
+  fs.rmSync(outDir, { recursive: true, force: true });
   const brief = { artifact_type: 'marketing', format: 'html', brief: 'hero landing' };
-  const { bundle } = runPre(brief, { outDir });
+  // runPre is write-free (Task 9 pattern): it returns the rendered slop-test markdown
+  // for main() to emit — assert the IN-MEMORY contract, not a file on disk.
+  const { bundle, slopTestMd } = runPre(brief, { outDir });
   expect(bundle.prompt_bullets.some((b) => /gradient|emoji|glass/i.test(b))).toBe(true);
-  expect(fs.existsSync(path.join(outDir, 'slop-test.md'))).toBe(true);
+  expect(typeof slopTestMd).toBe('string');
+  expect(slopTestMd.includes('NON-ENFORCED')).toBe(true);
+  expect(slopTestMd.includes('slop-test')).toBe(true);
+  // runPre must NOT have written the file — on-disk emit is a main()/CLI concern.
+  expect(fs.existsSync(path.join(outDir, 'slop-test.md'))).toBe(false);
+});
+
+test('skill-pre: per-key negation merge — preflight copy + slop copy both survive (regression, Task 11 review Finding 1)', () => {
+  // A shallow `{...preflight, ...slop}` merge would let slop's terse `copy` entry
+  // overwrite preflight's richer copy guidance ("use real numbers or a labelled
+  // placeholder, never invent") in spec.negation.copy, dropping it from prompt_bullets.
+  // Per-key concat (mergeNeg) unions both — assert the union survives.
+  const { bundle } = runPre({ artifact_type: 'report', format: 'html' }, {});
+  // preflight's richer copy guidance survives the merge
+  expect(bundle.prompt_bullets.some((b) => /real numbers|placeholder|never invent/i.test(b))).toBe(true);
+  // slop's terse copy entry is ALSO present (union, not replace). slop uses
+  // "testimonials/counts" with no spaces; preflight uses "testimonials / counts".
+  expect(bundle.prompt_bullets.some((b) => /testimonials\/counts/.test(b))).toBe(true);
+  // And the underlying raw copy array carries both entries (length 2, not 1)
+  expect(Array.isArray(bundle.negation.raw.copy)).toBe(true);
+  expect(bundle.negation.raw.copy.length).toBe(2);
 });
 
 test('skill-pre: same brief twice (no diversify) → byte-identical slop bullets (deterministic)', () => {
