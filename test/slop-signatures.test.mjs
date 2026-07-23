@@ -87,3 +87,29 @@ test('copy.generic: always unmeasured in v1 (LLM judge is v2, never gates)', () 
   const f = sig.detect(ctxOf(`<p>anything</p>`), {});
   expect(f && f.unmeasured).toBe(true);
 });
+
+import { SIGNATURES as TMPL } from '../lib/slop/signatures/template.mjs';
+
+test('template.trusted-by: "Trusted by" + logo strip fires (P1)', () => {
+  const sig = TMPL.find((s) => s.id === 'slop.template.trusted-by');
+  const html = `<section><h3>Trusted by</h3><img src="a"><img src="b"><img src="c"></section>`;
+  const f = sig.detect(ctxOf(html), {});
+  expect(f).toBeTruthy();
+  expect(sig.tier).toBe('P1');
+});
+
+test('template.trusted-by: absent does NOT fire', () => {
+  const sig = TMPL.find((s) => s.id === 'slop.template.trusted-by');
+  expect(sig.detect(ctxOf(`<p>hello</p>`), {})).toBeNull();
+});
+
+test('template.hero-trio: three equal hero cards fire (P1)', () => {
+  const sig = TMPL.find((s) => s.id === 'slop.template.hero-trio');
+  const alt = { nodes: [
+    { id: 'a', bbox: { x: 0, y: 0, w: 100, h: 100 } },
+    { id: 'b', bbox: { x: 110, y: 0, w: 100, h: 100 } },
+    { id: 'c', bbox: { x: 220, y: 0, w: 100, h: 100 } },
+  ] };
+  const f = sig.detect({ ...ctxOf(`<div></div>`), alt }, {});
+  expect(f).toBeTruthy();
+});
