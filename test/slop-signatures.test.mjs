@@ -66,3 +66,24 @@ test('decoration.animation: scale/rotate keyframe fires (P1)', () => {
   const f = sig.detect(ctxOf(html), {});
   expect(f).toBeTruthy();
 });
+
+import { SIGNATURES as COPY } from '../lib/slop/signatures/copy.mjs';
+
+test('copy.lexicon: cliché word fires (P2 advisory)', () => {
+  const sig = COPY.find((s) => s.id === 'slop.copy.lexicon');
+  const f = sig.detect(ctxOf(`<p>Let's delve into our robust, cutting-edge platform.</p>`), {});
+  expect(f).toBeTruthy();
+  expect(sig.tier).toBe('P2');
+});
+
+test('copy.lexicon: clean copy does NOT fire', () => {
+  const sig = COPY.find((s) => s.id === 'slop.copy.lexicon');
+  const f = sig.detect(ctxOf(`<p>The cache invalidates on write.</p>`), {});
+  expect(f).toBeNull();
+});
+
+test('copy.generic: always unmeasured in v1 (LLM judge is v2, never gates)', () => {
+  const sig = COPY.find((s) => s.id === 'slop.copy.generic');
+  const f = sig.detect(ctxOf(`<p>anything</p>`), {});
+  expect(f && f.unmeasured).toBe(true);
+});
