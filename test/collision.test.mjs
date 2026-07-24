@@ -70,3 +70,13 @@ test('collision: decorative connector bbox is not treated as a filled layout rec
   expect(r.violations).toHaveLength(0);
   expect(r.score).toBe(1);
 });
+
+test('collision: overlapping raster images are flagged (an <image> is never line art)', () => {
+  // <image> has no fill attribute, so the adapter records filled=false. Without the image
+  // exclusion in the stroke-only check, two stacked photos would be misread as crossing strokes.
+  const a = box('imgA', 10, 10, 200, 150, false);
+  const b = box('imgB', 20, 20, 200, 150, false);
+  a.kind = 'image';
+  b.kind = 'image';
+  expect(collision.measure(alt([a, b])).violations).toHaveLength(1);
+});

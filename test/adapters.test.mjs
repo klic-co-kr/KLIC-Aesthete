@@ -135,6 +135,18 @@ test('svg: line art is decorative and filled path nodes contain their labels', (
   expect(alt.nodes.find((n) => n.id === 'set')?.kind).toBe('container');
 });
 
+test('svg: two opaque same-size rects offset beyond a shadow stay real collision targets', () => {
+  // An 8px offset between equal opaque rectangles is a genuine overlap, not a drop shadow
+  // (shadows sit at ~2-5px). The shadow demoter must not swallow it into decor.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+    <rect id="r1" x="40" y="40" width="120" height="80" fill="#111"/>
+    <rect id="r2" x="48" y="48" width="120" height="80" fill="#222"/>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes.find((n) => n.id === 'r1')?.kind).toBe('box');
+  expect(alt.nodes.find((n) => n.id === 'r2')?.kind).toBe('box');
+});
+
 test('svg: export→import round-trips bbox positions', () => {
   const alt = importSvg(`<svg width="400" height="300"><rect x="10" y="20" width="100" height="50" stroke="#000"/><text x="10" y="40" font-size="20">Hi</text></svg>`);
   const out = exportSvg(alt);
