@@ -23,7 +23,7 @@
     "similarity.inconsistentGroups==0"
   ],
   "totalWeightedViolation": {
-    "start": 9.5,
+    "start": 6.5,
     "best": 0.5
   },
   "frozenNodes": [],
@@ -32,7 +32,7 @@
   "iterations_log": [
     {
       "iter": 0,
-      "cost": 9.5,
+      "cost": 6.5,
       "applied": 0,
       "freeRatio": 0.829
     },

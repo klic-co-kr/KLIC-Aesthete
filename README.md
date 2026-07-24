@@ -126,7 +126,7 @@ The core sees only ALT (Abstract Layout Tree) — domain-agnostic. But **the onl
 | Domain | import → ALT | export ALT → | Notes |
 |---|:--:|:--:|---|
 | `alt` | ✅ | ✅ | JSON native — **the only lossless round-trip** (canonical input) |
-| `svg` | ✅ | ⚠ | import: shape bbox incl. `<path>`, translate accumulation. export is **ALT re-emission** (not an original patch) — `circle`/`ellipse`/`rect` preserved; `<path>` Bézier·gradient·transform·stroke flatten to bbox-rect |
+| `svg` | ✅ | ⚠ | import: shape bbox incl. `<path>`, percentage lengths, full affine transform composition (`matrix`/`translate`/`scale`/`rotate`/`skew`), viewBox-origin normalization, and PowerPoint presentation-attribute semantics. Non-rendered `<defs>`/markers and flattened `aria-hidden` or `role="img"` internals are excluded; panels, shadow stacks, connector paths, and annotation pills are classified so they do not become false P0 collisions. export is **ALT re-emission** (not an original patch) — `circle`/`ellipse`/`rect` preserved; `<path>` Bézier·gradient·transform·stroke flatten to bbox-rect |
 | `html` | ✅ | ✅ | explicit geometry only (absolute coords / `data-*`) — flex/grid rendered bbox needs a browser |
 | `pptx` | ✅ | ⚠ | import: ZIP + slide XML `a:off/a:ext` (EMU), deterministic. export is a **single-slide minimal package** (no master/theme/media/charts; shapes are rects) |
 | `docx`/`xlsx` | ✅ | ❌ | approximate flow / uniform-grid ALT (no absolute coords). **No export** |

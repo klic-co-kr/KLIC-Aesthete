@@ -40,3 +40,33 @@ test('collision: mixed (one filled, one stroke) overlapping → still flagged (o
   ]));
   expect(r.metrics.count).toBe(1);
 });
+
+test('collision: class-styled text without an inline fill is not mistaken for line art', () => {
+  const a = box('a', 10, 10, 50, 20, false);
+  const b = box('b', 20, 15, 50, 20, false);
+  a.kind = 'text';
+  b.kind = 'text';
+  expect(collision.measure(alt([a, b])).violations).toHaveLength(1);
+});
+
+test('collision: container may contain content but partially overlapping peer containers still fail', () => {
+  const parent = box('panel', 0, 0, 200, 200, true);
+  parent.kind = 'container';
+  const child = box('label', 20, 20, 60, 20, true);
+  child.kind = 'text';
+  const peer = box('peer', 180, 20, 100, 100, true);
+  peer.kind = 'container';
+
+  expect(collision.measure(alt([parent, child])).violations).toHaveLength(0);
+  expect(collision.measure(alt([parent, peer])).violations).toHaveLength(1);
+});
+
+test('collision: decorative connector bbox is not treated as a filled layout rectangle', () => {
+  const card = box('card', 10, 10, 50, 50, true);
+  const edge = box('edge', 30, 30, 50, 50, false);
+  edge.kind = 'decor';
+  edge.shape = 'path';
+  const r = collision.measure(alt([card, edge]));
+  expect(r.violations).toHaveLength(0);
+  expect(r.score).toBe(1);
+});

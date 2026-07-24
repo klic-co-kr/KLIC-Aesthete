@@ -48,6 +48,7 @@ test('xml: parses nested tags, attrs, namespaces, text', () => {
 test('svg: import extracts geometry and skips full-canvas background', () => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
     <rect width="800" height="600" fill="#fff"/>
+    <rect width="100%" height="100%" fill="url(#grid)"/>
     <rect x="10" y="10" width="100" height="50" fill="#eee" stroke="#000"/>
     <g transform="translate(200, 100)"><rect x="0" y="0" width="40" height="40"/></g>
     <text x="5" y="20" font-size="24">제목</text>
@@ -61,11 +62,84 @@ test('svg: import extracts geometry and skips full-canvas background', () => {
   expect(g.bbox.y).toBe(100);
 });
 
+test('svg: PowerPoint affine transform lists resolve into canvas coordinates', () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 20 200 100">
+    <g transform="translate(30 40) scale(2)">
+      <rect id="scaled" x="1" y="2" width="10" height="5" fill="#fff"/>
+    </g>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes).toHaveLength(1);
+  expect(alt.nodes[0].bbox).toEqual({ x: 22, y: 24, w: 20, h: 10 });
+});
+
+test('svg: non-rendered defs and aria-hidden flattened icons are excluded', () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+    <defs><marker id="arrow"><path d="M0 0 L999 999"/></marker></defs>
+    <g aria-hidden="true"><g transform="translate(300 200) scale(.02) translate(0 0)">
+      <path d="M0 0 L5000 5000" fill="#000"/>
+    </g></g>
+    <rect id="card" x="20" y="20" width="100" height="60" fill="#fff"/>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes).toHaveLength(1);
+  expect(alt.nodes[0].id).toBe('card');
+});
+
+test('svg: presentation attributes infer shadows, containers, connectors, and anchored text', () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+    <rect x="22" y="22" width="360" height="260" fill="#ccd"/>
+    <rect id="panel" x="20" y="20" width="360" height="260" fill="#eef"/>
+    <rect id="card" x="40" y="50" width="100" height="80" fill="#fff"/>
+    <text id="label" x="90" y="90" text-anchor="middle" font-size="20" fill="#111">Card</text>
+    <path id="edge" data-link="a-&gt;b" d="M140 90 L200 90" fill="none" stroke="#111"/>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes.find((n) => n.id === 'rect-0')?.kind).toBe('decor');
+  expect(alt.nodes.find((n) => n.id === 'panel')?.kind).toBe('container');
+  expect(alt.nodes.find((n) => n.id === 'card')?.kind).toBe('container');
+  expect(alt.nodes.find((n) => n.id === 'edge')?.kind).toBe('decor');
+  expect(alt.nodes.find((n) => n.id === 'label')?.bbox).toEqual({
+    x: 68,
+    y: 74,
+    w: 44,
+    h: 20,
+  });
+});
+
+test('svg: an opaque card base survives a later translucent PowerPoint tint layer', () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">
+    <rect id="base" x="40" y="40" width="120" height="70" fill="#111"/>
+    <rect id="tint" x="40" y="40" width="120" height="70" fill="#0f0" fill-opacity=".3"/>
+    <text id="label" x="100" y="78" text-anchor="middle" font-size="16" fill="#fff">Node</text>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes.find((n) => n.id === 'base')?.kind).toBe('container');
+  expect(alt.nodes.find((n) => n.id === 'tint')?.kind).toBe('decor');
+});
+
+test('svg: line art is decorative and filled path nodes contain their labels', () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+    <line id="grid" x1="0" y1="100" x2="400" y2="100" stroke="#ddd"/>
+    <path id="hit-path" d="M20 20 L380 280" fill="none" stroke="none"/>
+    <path id="decision" d="M200 40 L280 100 L200 160 L120 100 Z" fill="#fff" stroke="#111"/>
+    <text id="decision-label" x="200" y="106" text-anchor="middle" font-size="16">Decide</text>
+    <circle id="set" cx="330" cy="220" r="40" class="c-set" fill-opacity=".85"/>
+    <text id="set-label" x="330" y="225" text-anchor="middle" font-size="14">Set</text>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes.find((n) => n.id === 'grid')?.kind).toBe('decor');
+  expect(alt.nodes.find((n) => n.id === 'hit-path')?.kind).toBe('decor');
+  expect(alt.nodes.find((n) => n.id === 'decision')?.kind).toBe('container');
+  expect(alt.nodes.find((n) => n.id === 'decision-label')?.kind).toBe('text');
+  expect(alt.nodes.find((n) => n.id === 'set')?.kind).toBe('container');
+});
+
 test('svg: export→import round-trips bbox positions', () => {
   const alt = importSvg(`<svg width="400" height="300"><rect x="10" y="20" width="100" height="50" stroke="#000"/><text x="10" y="40" font-size="20">Hi</text></svg>`);
   const out = exportSvg(alt);
   const back = importSvg(out);
-  const r = back.nodes.find((n) => n.kind === 'box');
+  const r = back.nodes.find((n) => n.shape === 'rect');
   expect(r.bbox.x).toBe(10);
   expect(r.bbox.w).toBe(100);
 });
