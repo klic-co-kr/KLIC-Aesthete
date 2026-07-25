@@ -72,7 +72,9 @@ test('skill-post: non-destructive — input bytes unchanged', async () => {
 
 test('skill-post: alt-only input (svg/pptx v1) → slop unmeasurable, no crash', async () => {
   const altPath = tmp('clean.alt.json');
-  fs.writeFileSync(altPath, JSON.stringify({ schema_version: 1, meta: { canvas: { w: 1000, h: 600 }, source: 'abstract' }, nodes: [] }));
+  // must be a SCHEMA-VALID ALT — alt.schema.json requires diagram_type + meta.title, and
+  // skill-post validates before scanning (silently null-reports otherwise once ajv is installed).
+  fs.writeFileSync(altPath, JSON.stringify({ schema_version: 1, diagram_type: 'layout', meta: { title: 'clean', canvas: { w: 1000, h: 600 }, source: 'abstract' }, nodes: [] }));
   const r = await runPost(altPath, { flags: { slop: true }, outDir: tmp('out-alt') });
   expect(r.slopReport.summary.coverage.html).toBe('unmeasurable');
 });
