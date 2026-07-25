@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-en.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **244 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **355 pass** ✅
 
 ---
 
@@ -103,7 +103,7 @@ Each skill has a three-layer structure — **observe · measure · cognitive eff
 |---|---|---|---|
 | `collision` | pairwise bbox overlap | `count` | **P0** hard |
 | `boundary` | canvas overflow | `overflowCount` | **P0** hard |
-| `hierarchy` | font-scale unitarity × WCAG contrast | `clarity` | P1 |
+| `hierarchy` | font-scale unitarity × WCAG contrast (AA: 4.5:1 body, **3:1 for text ≥24px**) | `clarity` | P1 |
 | `balance` | Ngo symmetrical balance `BM = 1−(‖BMv‖+‖BMh‖)/2` | `BM` | P2 |
 | `proximity` | Gestalt RANG + PDL `P_group = exp(−α·d/d_ref)` | `fragmentedCount` / `falseAdjacencyCount` | P2 |
 | `whitespace` | occupancy quadtree (no pixels) | `freeRatio` | P2 |
@@ -126,7 +126,7 @@ The core sees only ALT (Abstract Layout Tree) — domain-agnostic. But **the onl
 | Domain | import → ALT | export ALT → | Notes |
 |---|:--:|:--:|---|
 | `alt` | ✅ | ✅ | JSON native — **the only lossless round-trip** (canonical input) |
-| `svg` | ✅ | ⚠ | import: shape bbox incl. `<path>`, percentage lengths, full affine transform composition (`matrix`/`translate`/`scale`/`rotate`/`skew`), viewBox-origin normalization, and PowerPoint presentation-attribute semantics. Non-rendered `<defs>`/markers and flattened `aria-hidden` or `role="img"` internals are excluded; panels, shadow stacks, connector paths, and annotation pills are classified so they do not become false P0 collisions. export is **ALT re-emission** (not an original patch) — `circle`/`ellipse`/`rect` preserved; `<path>` Bézier·gradient·transform·stroke flatten to bbox-rect |
+| `svg` | ✅ | ⚠ | import: shape bbox incl. `<path>`, percentage lengths, full affine transform composition (`matrix`/`translate`/`scale`/`rotate`/`skew`), viewBox-origin normalization, and PowerPoint presentation-attribute semantics. A `<text>` element's fill is the FOREGROUND (`style.color`); its `style.bg` is resolved from the **paint stack** (nearest enclosing filled shape — page rect, card, panel), since SVG gives no element its own backdrop. Non-rendered `<defs>`/markers and flattened `aria-hidden` or `role="img"` internals are excluded; panels, shadow stacks, connector paths, and annotation pills are classified so they do not become false P0 collisions. export is **ALT re-emission** (not an original patch) — `circle`/`ellipse`/`rect` preserved; `<path>` Bézier·gradient·transform·stroke flatten to bbox-rect |
 | `html` | ✅ | ✅ | explicit geometry only (absolute coords / `data-*`) — flex/grid rendered bbox needs a browser |
 | `pptx` | ✅ | ⚠ | import: ZIP + slide XML `a:off/a:ext` (EMU), deterministic. export is a **single-slide minimal package** (no master/theme/media/charts; shapes are rects) |
 | `docx`/`xlsx` | ✅ | ❌ | approximate flow / uniform-grid ALT (no absolute coords). **No export** |
@@ -158,7 +158,7 @@ lib/
   preflight.mjs  pre-generation — artifact type → type-tuned contract + geometric budget + banned defaults (generation goal)
   structure.mjs  structural classifier/verifier — geometric signatures (classify / verify)
   diversify.mjs  .aesthete/log.json structure rotation (--diversify)
-  vuln.mjs       vulnerability engine — discrete known-bad patterns (negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header)
+  vuln.mjs       vulnerability engine — discrete known-bad patterns (negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header) + screen-UI guideline signatures (icon-fill-mix·all-caps-text·pure-black-text·low-contrast-ui). Screen-scoped: poster caps display type and diagram chrome are suppressed as intent, not defect
   slop.mjs       AI-slop signature engine — mirrors vuln (signature fold + overridable thresholds + advisory). v1 = HTML literal-presence scan only (SVG/PPTX/LLM-judge = v2). Four axes: palette (cliché indigo→violet→pink gradient · glassmorphism · gradient border [card top bar / callout left rail]), decoration (emoji-in-heading · italic heading [Hallmark gate 38a — top AI tell] · icon saturation · decorative animation), copy (LLM marketing lexicon + fake-precision metrics [many-9 % / round Nx — research-attested tells] over body+headings, separator-normalized; generic LLM-judge = v2 stub → always unmeasured), template (trusted-by logo strip · hero trio). Uncalibrated — conservative presence floors, corpus tuning is v2
   profiles.mjs   execution-profile matrix — per-tier truth of allowed/forbidden/success (measure-only/fix-geometry/llm-judge/human-gate)
   validate.mjs   validation harness — A/B/C/D score variants correlated against a human-rated corpus (demo corpus is synthetic placeholder)
@@ -203,7 +203,7 @@ package.json scripts: pre / post / gate. Short skills: skills/aesthete-*/SKILL.m
 | `bun lib/structure.mjs classify <alt\|svg\|pptx\|html> [type]` \| `verify <alt> <structureId>` | **structure classify/verify** — `classify` returns detected structure + geometric metrics; `verify` returns whether the requested structure holds (PASS=exit 0 / FAIL=exit 1, CI gate). Signature-based deterministic (node count · area spread · col/row clusters · dominance · free-ratio); returns `unknown` when unclear |
 | `bun lib/overlay/svg.mjs <original.svg> <fixed.alt.json> [out.svg]` | **SVG overlay export** — applies the fixed ALT as `<g transform>` wraps on the ORIGINAL svg (path / gradient / stroke preserved — no flattening). Closed-loop-safe: `fix` still mutates `bbox` (measure reads it); each imported node carries `_originalBbox`, and overlay derives the transform delta from it |
 | `bun lib/overlay/pptx.mjs <original.pptx> <fixed.alt.json> [out.patches.json] [--slide N]` | **PPTX overlay export** — emits an OfficeCLI `batch` manifest (`{op:set, path:/slide[N]/shape[M], props:{x,y,w,h in EMU}}`) applying the fixed ALT to the ORIGINAL pptx (masters/themes/charts preserved). Re-parses the original to map each `<p:sp>` to its true OfficeCLI shape-index (handles interspersed pics); positional match, throws on mismatch |
-| `bun lib/vuln.mjs <layout> [vuln-report.json] [--type dashboard\|marketing\|report\|diagram\|poster]` | **vulnerability engine** — discrete known-bad patterns (negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header). `--type` injects context and suppresses signatures that contradict the type's intent (avoids false positives). advisory, `measure-only` |
+| `bun lib/vuln.mjs <layout> [vuln-report.json] [--type dashboard\|marketing\|report\|diagram\|poster]` | **vulnerability engine** — discrete known-bad patterns (negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header) plus **screen-UI guideline signatures** (icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui = WCAG 1.4.11 non-text 3:1). `--type` injects context and suppresses signatures that contradict the type's intent (avoids false positives). advisory, `measure-only` |
 | `bun lib/slop.mjs <artifact.html> [slop.json] [--type T] [--medium html]` | **slop signature engine** — advisory AI-slop detection across 4 axes (palette · decoration · copy · template). v1: HTML literal-presence scan only (SVG/PPTX/LLM-judge = v2); every threshold overridable via `opts.thresholds[id]`; every finding `suggestionOnly`. `measure-only`, uncalibrated |
 | `bun lib/validate.mjs [corpus.json] [validate-report.json]` | **validation harness** — correlates A/B/C/D score variants (overallScore / measuredAestheticScore / hardIntegrityScore / coverageScore) against the corpus `humanScore` + baseline. The demo corpus is synthetic |
 | `bun lib/diffview.mjs <layout\|svg> [out.html] [--contract c.json]` | **before/after viewer** — round-trips pre/post-fix SVG through the same adapter, side-by-side on one screen + score before→after delta. Open `out.html` in a browser to visually compare the correction |
@@ -229,6 +229,7 @@ The correction `outcome` enum: `pass | best-effort | no-improvement | budget-exh
   | Raster (ChatGPT / Nanobanana / …) | anatomical errors, texture artifacts, lighting inconsistencies, frequency fingerprints | **vision model required** (C2PA / frequency analysis / GAN fingerprints) | **out of scope** — pure-JS no-browser engine can't host a vision model; Phase 3 image/vision hook is the prerequisite |
 
   See [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md) for the v2 scanner design.
+- **Screen-UI guideline signatures cover only what ALT carries.** The four shipped signatures (icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui) use fields that already exist in ALT — `style.filled`, `label`, `style.color`, `style.bg`, geometry. The rest of the standard screen-UI typography rules are **not implemented**, because ALT has no field for them and no adapter extracts them: font weight (regular/bold only), typeface count / serif-vs-sans, `text-decoration` (don't signal a link by colour alone), text alignment, and line-height ≥1.5. Adding them is an ALT-schema + adapter change, not a signature change. **x-height** (prefer typefaces with taller lowercase) needs per-font metric tables and stays **unmeasurable** — no proxy is offered, because a weak proxy scored as a measurement is exactly what `coverage` exists to prevent. `low-contrast-ui` is also deliberately narrowed to control-shaped, non-repeated elements: a toolbar of >4 identical low-contrast icons goes unflagged (a false negative traded for a false positive).
 - **Out of scope** (needs infrastructure): a real GRPO training loop (LLM training), physical multi-agent session isolation (this skill achieves the equivalent via "evaluator = arithmetic"), PPTX slide masters/themes, **raster-image slop detection** (vision model required).
 
 ---
@@ -256,6 +257,14 @@ The cognitive-skill framework is implemented as working, deterministic skills �
 | Birkhoff, G. D. (1933). *Aesthetic Measure.* — M = O/C (order/complexity) | `harmony` |
 | Fan, T. et al. — visual-complexity research (quadtree whitespace application) | `whitespace` |
 | Symmetry (2024). Balanced composition and early visual processing. | `balance` |
+
+### Applied UI guidelines (standards + practitioner)
+
+| Source | Kind | Skill link |
+|---|---|---|
+| W3C. *WCAG 2.1* — SC 1.4.3 contrast (minimum): 4.5:1 text, 3:1 large text (≥24px, or ≥18px bold) — [w3.org](https://www.w3.org/TR/WCAG21/#contrast-minimum) | **standard** (normative) | `hierarchy` |
+| W3C. *WCAG 2.1* — SC 1.4.11 non-text contrast: 3:1 for UI components and meaningful graphics; decoration exempt — [w3.org](https://www.w3.org/TR/WCAG21/#non-text-contrast) | **standard** (normative) | `vuln:low-contrast-ui` |
+| Dannaway, A. (2026). *16 little UI design tips that make a big impact* — [adhamdannaway.com](https://www.adhamdannaway.com/blog/ui-design/ui-design-tips) | practitioner guidance (one experienced designer's system, **not** an empirical study) | `vuln:icon-fill-mix` · `all-caps-text` · `pure-black-text`; already-covered tips map to `proximity` (grouping), `hierarchy` + `vuln:no-focal-point` (squint test) |
 
 ### Neuro-Symbolic AI
 

@@ -5,3 +5,70 @@
 
 *No recent activity*
 </claude-mem-context>
+
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+Aesthete: a layout-aesthetics measurement + deterministic auto-fix engine for structured layouts (SVG/PPTX/OOXML/HTML/Image/ALT). The evaluator is **pure geometric arithmetic, not an LLM** — `Math.random`/`Date` are forbidden in the engine so results are reproducible. Domain formats convert to/from **ALT (Abstract Layout Tree, JSON)**; the core (measure/fix/contract/graph) only ever sees ALT. Full rationale/math: `DESIGN.md`. Agent usage playbook: `docs/agent-llm-usage.md` (read that instead of `DESIGN.md` when just operating the tool). Korean short-form: `SKILL.md`.
+
+Runtime is **Bun** (`bun install`, `bun run …`), not Node, even though files are `.mjs`.
+
+## Commands
+
+```bash
+bun install                 # first time only
+bun run test                 # bun test/golden.mjs && bun test  (golden byte-stability + full unit suite)
+bun test test/collision.test.mjs      # single test file (bun:test — test/expect imports)
+bun test -t "name substring"          # filter by test name across files
+
+bun lib/measure.mjs <file> [report.json] [--profile <name>] [--symmetry]
+bun lib/fix.mjs <file> --contract <c.json> [--emit svg|html|pptx|alt] [--aesthetic]
+bun lib/lint.mjs <file>                       # token-sandbox CI gate, exit 0/1
+bun lib/tune.mjs before.json after.json [--apply --profile <name> | --global]
+
+# Agent-facing one-shots (this is the recommended entry point, not the engine calls above)
+bun lib/skill-pre.mjs <brief.json> --out-dir DIR      # pre.json + contract.json + prompt_bullets.md
+bun lib/skill-post.mjs <artifact> --contract DIR/contract.json --out-dir DIR2   # decision.json, non-destructive
+bun lib/skill-gate.mjs <artifact> --contract c.json   # CI: pass=0, fix_geometry/regenerate=1, human/usage=2
+```
+
+`golden.mjs` (run first by `bun run test`) re-measures/re-fixes the checked-in `examples/*.json` and byte-diffs against committed snapshots, plus checks `package.json` / `bun.lock` / `SKILL.md` version sync. If you change scoring math, measurement output, or the fixer, **regenerate and commit** the affected `examples/*.report.json` / `*.fixed.json` / `*.fix-log.json` — a byte diff there is expected fallout of an intentional change, not a bug to silently paper over.
+
+## Architecture
+
+```
+target (SVG/PPTX/HTML/ALT/Image) ──adapter──► ALT
+                                                 │
+                 9 cognitive skills measure (same formulas) ──► report.json
+                                                 │
+                 Sprint Contract (frozen rubric) ──► PASS/FAIL
+                                                 │
+                 closed-loop fix (measure → resolve → patch → re-measure)
+                                                 │
+                 corrected ALT ──adapter──► original domain
+```
+
+- `lib/skills/` — the 9 measurement skills (collision, boundary, hierarchy, balance, proximity, whitespace, harmony, similarity, fluency) + `symmetry` (opt-in). Each has observe/measure/effect layers, tiered P0 (hard: collision/boundary) > P1 (hierarchy) > P2 (rest). `lib/graph.mjs` declares priority/conflict/influence relations between them (e.g. proximity↔whitespace conflict resolved via a continuous `compensationFactor`, not a threshold).
+- `lib/adapters/` — domain ↔ ALT converters (svg, html, pptx, ooxml, image + xml/zip/emu helpers, `index.mjs` registry). **Import is the real feature; export is mostly lossy/partial** — ALT (JSON) is the only lossless round-trip. See the domain table in `README.md` before assuming an svg/pptx export preserves the original.
+- `lib/measure.mjs` / `lib/fix.mjs` / `lib/contract.mjs` — core measure → contract-evaluate → closed-loop-correct pipeline. `fix.mjs` only touches P0 geometry (collision/boundary) unless `--aesthetic` is passed (P1/P2 shifts risk Goodhart — scores can rise while real aesthetics worsen).
+- `lib/skill-pre.mjs` / `lib/skill-post.mjs` / `lib/skill-gate.mjs` (+ `lib/skill-decision.mjs`) — the agent-facing facade. This is the loop an LLM/agent is expected to drive: `pre` (brief → contract + prompt bullets) → external generation → `post` (artifact → `decision.json`, never mutates the artifact) → branch on `decision` (`pass` / `fix_geometry` → run `fix.mjs` then re-`post` / `regenerate` (≤3) / `human` escalate). Mirrored short-form skill docs live in `skills/aesthete-{pre,post,gate}/SKILL.md`.
+- `lib/preflight.mjs` / `lib/structure.mjs` — pre-generation goal-setting (contract + geometric budget + banned defaults + structure prior) and post-hoc structural classify/verify; same contract is consumed by both preflight and fix, so the pre-generation goal equals the post-hoc criterion.
+- `lib/vuln.mjs` — discrete known-bad-pattern negation engine (no-focal, no-rhythm, type-accident, rainbow, even-split, ai-cliche, hanging-header) plus screen-UI guideline signatures (icon-fill-mix, all-caps-text, pure-black-text, low-contrast-ui). Advisory, `measure-only`. Adding a signature is the **low-blast-radius seam**: it doesn't touch the 9-skill weighted score, so no `examples/*.report.json` churn. New signatures need a `DEFAULT_THRESHOLDS` entry, a `TYPE_SUPPRESSIONS` decision (poster caps / diagram chrome are intent, not defect), and an FP test — the module header states FP rate is the #1 failure mode, and the FP suite in `test/vuln.test.mjs` is where each guard is pinned to the real case that motivated it.
+- `lib/slop.mjs` (+ `lib/slop-rules.mjs`, `lib/slop/`) — AI-slop signature detector, structurally parallel to `vuln.mjs`. **v1 is HTML-only** (literal source-scan across palette/decoration/copy/template axes); SVG/PPTX/raster/LLM-judge are v2/out-of-scope by design — see `README.md` "Honest limitations" and `docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md` before extending this to another medium.
+- `lib/tune.mjs` — self-evolving tuner: diffs an ALT before/after a human edit to update `skill-params.json`. `--apply` is refused below `MIN_PAIRS=3` (bypass: `--force`), and records to a `--profile` by default — writing the *global* params needs explicit `--global`.
+- `lib/overlay/{svg,pptx}.mjs` — applies a fixed ALT back onto the *original* artifact (transform wraps / OfficeCLI patch manifest) instead of flattening through the adapter's own export, to preserve paths/masters/themes. Separate track from the default loop.
+- `lib/harness.mjs` + `lib/designspec.mjs` — `@design` front-matter driven integrated cognition + token-compliance automation.
+- `lib/validate.mjs` + `lib/bradley-terry.mjs` + `scripts/build-human-corpus.mjs` — validation harness correlating score variants against a human-rated corpus. The shipped `examples/validation-corpus.json` has synthetic placeholder labels (circular); `examples/ground-truth-corpus.json` uses injected-defect severity instead (non-circular, but still not real human-preference validation — read `README.md`'s honest-limitations section rather than assuming either corpus proves aesthetic accuracy).
+- `schemas/` — JSON Schema 2020-12, `additionalProperties: false`, for alt/contract/report/decision/brief/pre/slop-report/vuln-report/validation-corpus.
+- `test/golden.mjs` is a standalone script (not `bun:test`) — byte-stability + version-sync only; everything else is `bun:test` (`test/*.test.mjs`).
+
+## Working conventions specific to this repo
+
+- Determinism is load-bearing: no `Math.random()`, no wall-clock `Date` in engine code paths that affect output. Tuner backups use a counter (`*.backup-NNN`), not timestamps.
+- **ALT color contract: `style.color` = foreground, `style.bg` = backdrop.** `lib/adapters/html.mjs` defines it; every adapter must conform. SVG has no per-element backdrop, so `lib/adapters/svg.mjs` resolves a `<text>` node's `bg` from the paint stack via `backdropIndexFor` (`lib/geometry.mjs`) — nearest *preceding* filled non-text node that fully contains it. That resolution runs **before** full-canvas backdrops are dropped from the leaf list, since the page rect is what most text sits on. Violating the contract silently corrupts `hierarchy` contrast rather than erroring.
+- Don't conflate "measured" with "unmeasurable → neutral". Reports carry per-skill `coverage` (measured/partial/unmeasurable) and separate `hardIntegrityScore` / `measuredAestheticScore` / `coverageScore` from the legacy inclusive `overallScore` — prefer the split scores when reasoning about a report, and preserve that distinction if you touch `measure.mjs` or `contract.mjs`.
+- `skill-post.mjs` / `skill-gate.mjs` never mutate the input artifact — if you need a corrected file you explicitly run `fix.mjs` (or an `overlay/*` for a non-destructive original-preserving patch) and re-run `post`.
+- License is **Modified MIT + Commons Clause + Media Restrictions** (no selling/hosting-as-a-service; no public media content about the source without consent) — see `LICENSE`. Keep this in mind before suggesting SaaS-wrapping or public demo/review content built on this repo.

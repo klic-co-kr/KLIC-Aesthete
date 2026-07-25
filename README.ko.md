@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-ko.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **244 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **355 pass** ✅
 
 ---
 
@@ -98,7 +98,7 @@ bun lib/structure.mjs classify deck.pptx dashboard       # 감지된 구조 + �
 |---|---|---|---|
 | `collision` | 쌍별 bbox 겹침 | `count` | **P0** 하드 |
 | `boundary` | 캔버스 이탈 | `overflowCount` | **P0** 하드 |
-| `hierarchy` | 폰트 스케일 단위성 × WCAG 대비 | `clarity` | P1 |
+| `hierarchy` | 폰트 스케일 단위성 × WCAG 대비 (AA: 본문 4.5:1, **24px 이상 텍스트는 3:1**) | `clarity` | P1 |
 | `balance` | Ngo 대칭균형 `BM = 1−(‖BMv‖+‖BMh‖)/2` | `BM` | P2 |
 | `proximity` | 게슈탈트 RANG + PDL `P_group = exp(−α·d/d_ref)` | `fragmentedCount` / `falseAdjacencyCount` | P2 |
 | `whitespace` | 점유 쿼드트리(픽셀 없음) | `freeRatio` | P2 |
@@ -121,7 +121,7 @@ bun lib/structure.mjs classify deck.pptx dashboard       # 감지된 구조 + �
 | 도메인 | import → ALT | export ALT → | 비고 |
 |---|:--:|:--:|---|
 | `alt` | ✅ | ✅ | JSON 네이티브 — **유일한 무손실 round-trip**(캐노니컬 입력) |
-| `svg` | ✅ | ⚠ | import: `<path>` 포함 도형 bbox, 백분율 길이, 전체 affine transform(`matrix`/`translate`/`scale`/`rotate`/`skew`) 합성, viewBox 원점 정규화, PowerPoint presentation attribute 의미 해석. 비표시 `<defs>`/marker와 평탄화된 `aria-hidden`·`role="img"` 내부를 제외하고, 패널·그림자 스택·연결선·주석 배지를 분류해 P0 충돌 오탐을 막는다. export는 **ALT 재출력**(원본 패치 아님) — `circle`/`ellipse`/`rect`는 보존, `<path>` Bézier·gradient·transform·stroke는 bbox-rect로 평탄화 |
+| `svg` | ✅ | ⚠ | import: `<path>` 포함 도형 bbox, 백분율 길이, 전체 affine transform(`matrix`/`translate`/`scale`/`rotate`/`skew`) 합성, viewBox 원점 정규화, PowerPoint presentation attribute 의미 해석. `<text>`의 fill은 **전경색**(`style.color`)이고, `style.bg`는 **페인트 스택**(텍스트를 감싸는 가장 가까운 채워진 도형 — 페이지 rect·카드·패널)에서 해석한다(SVG는 요소별 배경색을 주지 않으므로). 비표시 `<defs>`/marker와 평탄화된 `aria-hidden`·`role="img"` 내부를 제외하고, 패널·그림자 스택·연결선·주석 배지를 분류해 P0 충돌 오탐을 막는다. export는 **ALT 재출력**(원본 패치 아님) — `circle`/`ellipse`/`rect`는 보존, `<path>` Bézier·gradient·transform·stroke는 bbox-rect로 평탄화 |
 | `html` | ✅ | ✅ | 명시 기하(절대좌표/`data-*`)만 — 플렉스/그리드 렌더링 bbox는 브라우저 필요 |
 | `pptx` | ✅ | ⚠ | import: ZIP+슬라이드 XML `a:off/a:ext`(EMU) 결정론적. export는 **단일 슬라이드 최소 패키지**(마스터·테마·미디어·차트 미포함, shape는 rect) |
 | `docx`/`xlsx` | ✅ | ❌ | 흐름/균일격자 근사 ALT(절대 좌표 없음). **export 없음** |
@@ -151,7 +151,7 @@ lib/
   fix.mjs        폐루프 자동보정 (단조 개선 게이트 + P0 서브루프 청소, 진동·NaN 방지)
   tune.mjs       자가진화 튜너 (diff → skill-params.json)
   preflight.mjs  전처리 — artifact type → 타입별 contract + 기하 budget + 금지 기본값(생성 전 목표)
-  vuln.mjs       취약점 엔진 — 이산 known-bad 패턴 탐지(negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche)
+  vuln.mjs       취약점 엔진 — 이산 known-bad 패턴 탐지(negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche) + 화면 UI 가이드라인 시그니처(icon-fill-mix·all-caps-text·pure-black-text·low-contrast-ui). 화면 매체 한정 — 포스터의 대문자 디스플레이 타이포와 다이어그램 chrome은 '의도'로 보고 억제
   slop.mjs       AI-slop 시그니처 엔진 — vuln과 동형(시그니처 fold + overridable thresholds + advisory). v1 = HTML 리터럴 존재 스캔 전용(SVG/PPTX/LLM-judge = v2). 4축: palette(클리셰 indigo→violet→pink 그라디언트·glassmorphism·그라디언트 보더 [카드 상단 바 / 콜아웃 좌측 레일]), decoration(헤딩 내 이모지·이탤릭 헤딩 [Hallmark 게이트 38a — top AI tell]·아이콘 포화·장식 애니메이션), copy(LLM 마케팅 lexicon + fake-precision 수치[다중-9 % / 라운드 Nx 배수 — 연구 기반 tell] — 본문+헤딩 커버, 분리자 정규화; generic LLM-judge = v2 stub → 항상 unmeasured), template(trusted-by 로고 띠·hero 3종). 미보정 — 보수적 존재 floor, corpus 튜닝은 v2
   profiles.mjs   실행 프로파일 매트릭스 — 층마다 허용/금지/성공의 진실(measure-only/fix-geometry/llm-judge/human-gate)
   validate.mjs   검증 하네스 — A/B/C/D 점수 변형을 인간 평가 corpus 대비 상관 비교(demo corpus는 synthetic placeholder)
@@ -196,7 +196,7 @@ test/            bun:test + golden.mjs (zero-dep)
 | `bun lib/structure.mjs classify <alt\|svg\|pptx\|html> [type]` \| `verify <alt> <structureId>` | **구조 분류/검증** — `classify` 감지된 구조+기하 metrics; `verify` 요청받은 구조 만족 여부(PASS=exit 0 / FAIL=exit 1, CI 게이트). 서명(노드 수·면적 분산·열/행 클러스터·지배력·여백률) 기반 결정론; 명확치 않으면 `unknown` |
 | `bun lib/overlay/svg.mjs <original.svg> <fixed.alt.json> [out.svg]` | **SVG overlay export** — fix된 ALT를 원본 svg 위에 `<g transform>` wrap로 적용(path·gradient·stroke 평탄화 없이 보존). closed-loop 안전: `fix`는 여전히 `bbox`를 고치고(measure가 읽음), 각 import 노드는 `_originalBbox`를 가지며 overlay가 그 delta로 transform을 도출 |
 | `bun lib/overlay/pptx.mjs <original.pptx> <fixed.alt.json> [out.patches.json] [--slide N]` | **PPTX overlay export** — fix된 ALT를 원본 pptx에 적용하는 OfficeCLI `batch` 매니페스트(`{op:set, path:/slide[N]/shape[M], props:{x,y,w,h in EMU}}`) 출력(마스터·테마·차트 보존). 원본을 재파싱해 각 `<p:sp>`의 진짜 OfficeCLI shape-index를 매핑(중간 pic 포함 대응); positional 매칭, 불일치 시 throw |
-| `bun lib/vuln.mjs <layout> [vuln-report.json] [--type dashboard\|marketing\|report\|diagram\|poster]` | **취약점 엔진** — 이산 known-bad 패턴(negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header). `--type`으로 맥락 주입 시 타입 의도에 모순되는 시그니처 억제(위양성 방지). advisory, `measure-only` |
+| `bun lib/vuln.mjs <layout> [vuln-report.json] [--type dashboard\|marketing\|report\|diagram\|poster]` | **취약점 엔진** — 이산 known-bad 패턴(negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header) + **화면 UI 가이드라인 시그니처**(icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui = WCAG 1.4.11 비텍스트 3:1). `--type`으로 맥락 주입 시 타입 의도에 모순되는 시그니처 억제(위양성 방지). advisory, `measure-only` |
 | `bun lib/slop.mjs <artifact.html> [slop.json] [--type T] [--medium html]` | **slop 시그니처 엔진** — 4축(palette · decoration · copy · template) advisory AI-slop 탐지. v1: HTML 리터럴 존재 스캔 전용(SVG/PPTX/LLM-judge = v2); 모든 threshold는 `opts.thresholds[id]`로 overridable; 모든 finding은 `suggestionOnly`. `measure-only`, 미보정 |
 | `bun lib/validate.mjs [corpus.json] [validate-report.json]` | **검증 하네스** — A/B/C/D 점수 변형(overallScore/measuredAestheticScore/hardIntegrityScore/coverageScore)을 corpus `humanScore`와 상관 비교 + baseline. demo corpus는 synthetic |
 | `bun lib/diffview.mjs <layout\|svg> [out.html] [--contract c.json]` | **before/after 뷰어** — fix 전후 SVG를 같은 adapter로 round-trip해 좌우 한 화면에 + 점수 before→after delta. `out.html`을 브라우저로 열면 보정 효과 시각 비교 |
@@ -222,6 +222,7 @@ test/            bun:test + golden.mjs (zero-dep)
   | Raster (ChatGPT / Nanobanana / …) | 해부학 오류·질감 artifact·조명 비일관성·주파수 지문 | **비전 모델 필요** (C2PA / 주파수 분석 / GAN 지문) | **범위 밖** — pure-JS no-browser 엔진은 비전 모델을 호스트할 수 없음; Phase 3 image/vision hook이 전제 |
 
   v2 스캐너 설계는 [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md) 참고.
+- **화면 UI 가이드라인 시그니처는 ALT가 담고 있는 것만 커버한다.** 구현된 4개(icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui)는 이미 존재하는 필드(`style.filled`·`label`·`style.color`·`style.bg`·기하)만 쓴다. 나머지 표준 화면 타이포 규칙은 **미구현** — ALT에 필드가 없고 어떤 어댑터도 추출하지 않기 때문: 폰트 웨이트(regular/bold만), 서체 개수·serif 여부, `text-decoration`(색만으로 링크 표시 금지), 텍스트 정렬, line-height 1.5 이상. 이들은 시그니처 추가가 아니라 **ALT 스키마 + 어댑터 변경**이다. **x-height**(소문자 높이가 큰 서체 선호)는 폰트별 metric 테이블이 필요해 **측정 불가**로 남긴다 — 약한 프록시를 측정값으로 포장하는 것이 바로 `coverage`가 막으려는 것이므로 대체 지표를 제공하지 않는다. `low-contrast-ui`도 의도적으로 컨트롤 형태·비반복 요소로 좁혔다: 동일한 저대비 아이콘이 4개를 넘는 툴바는 탐지되지 않는다(위양성 대신 위음성을 택함).
 - **범위 밖**(인프라 필요): 실제 GRPO 학습 루프(LLM 훈련), 물리적 다중 에이전트 세션 분리(본 스킬은 "평가자=산술"로 동등 효과 달성), PPTX 슬라이드 마스터/테마, **raster-image slop 탐지**(비전 모델 필요).
 
 ---
@@ -248,6 +249,14 @@ test/            bun:test + golden.mjs (zero-dep)
 | Birkhoff, G. D. (1933). *Aesthetic Measure.* — M = O/C (질서/복잡도) | `harmony` |
 | Fan, T. et al. — 시각 복잡도 연구 (quadtree whitespace 적용) | `whitespace` |
 | Symmetry (2024). Balanced composition and early visual processing. | `balance` |
+
+### 적용 UI 가이드라인 (표준 + 실무)
+
+| 출처 | 성격 | 스킬 연결 |
+|---|---|---|
+| W3C. *WCAG 2.1* — SC 1.4.3 대비(최소): 텍스트 4.5:1, 큰 텍스트(24px 이상 또는 18px bold) 3:1 — [w3.org](https://www.w3.org/TR/WCAG21/#contrast-minimum) | **표준**(규범) | `hierarchy` |
+| W3C. *WCAG 2.1* — SC 1.4.11 비텍스트 대비: UI 컴포넌트·의미 있는 그래픽 3:1, 장식은 면제 — [w3.org](https://www.w3.org/TR/WCAG21/#non-text-contrast) | **표준**(규범) | `vuln:low-contrast-ui` |
+| Dannaway, A. (2026). *16 little UI design tips that make a big impact* — [adhamdannaway.com](https://www.adhamdannaway.com/blog/ui-design/ui-design-tips) | 실무 지침(경험 많은 디자이너 1인의 체계, **실증 연구 아님**) | `vuln:icon-fill-mix` · `all-caps-text` · `pure-black-text`; 이미 커버된 팁은 `proximity`(그룹핑), `hierarchy` + `vuln:no-focal-point`(squint test)로 매핑 |
 
 ### Neuro-Symbolic AI
 

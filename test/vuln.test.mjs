@@ -205,3 +205,166 @@ test('FP: bails on dense input (maxNodes cap) — no explosion, no finding', () 
   expect(has(r, 'hanging-header')).toBeUndefined();
 });
 
+
+// ---------------------------------------------------------------------------
+// Screen-UI signatures (logic-driven UI guidelines, Dannaway 2026; WCAG 2.1 AA
+// contrast ratios are W3C). Each is medium-scoped to screen UI and type-suppressed
+// where the flagged pattern is the artifact type's intent.
+// ---------------------------------------------------------------------------
+
+const icon = (id, x, y, filled, style = {}) => ({
+  id, kind: 'icon', bbox: { x, y, w: 24, h: 24 },
+  style: { opacity: 1, bg: '#111827', color: '#111827', filled, ...style },
+});
+const label = (id, text, fontSize = 14, style = {}) => ({
+  id, kind: 'text', label: text, bbox: { x: 0, y: 0, w: text.length * fontSize * 0.6, h: fontSize },
+  style: { opacity: 1, fontSize, color: '#374151', bg: '#ffffff', role: 'body', ...style },
+});
+
+test('vuln: icon-fill-mix flagged when filled and outline icons are mixed', () => {
+  const r = scanAlt(alt([
+    icon('i1', 0, 0, true), icon('i2', 40, 0, true),
+    icon('i3', 80, 0, false), icon('i4', 120, 0, true),
+  ]));
+  const v = has(r, 'icon-fill-mix');
+  expect(v).toBeTruthy();
+  expect(v.nodes).toContain('i3');
+});
+
+test('FP-guard: a consistently outlined icon set is NOT an icon-fill mix', () => {
+  const r = scanAlt(alt([icon('i1', 0, 0, false), icon('i2', 40, 0, false), icon('i3', 80, 0, false)]));
+  expect(has(r, 'icon-fill-mix')).toBeUndefined();
+});
+
+test('FP-guard: icon-fill-mix needs filled DECLARED on every icon (undeclared defaults to true)', () => {
+  // collision.mjs defaults an unfilled node to filled:true for back-compat, so an ALT that
+  // declares `filled` on only some icons would read as a mix that the source never had.
+  const partial = [icon('i1', 0, 0, false), icon('i2', 40, 0, true)];
+  delete partial[1].style.filled;
+  expect(has(scanAlt(alt(partial.concat([icon('i3', 80, 0, false)]))), 'icon-fill-mix')).toBeUndefined();
+});
+
+test('vuln: all-caps-text flagged on a long uppercase string', () => {
+  const r = scanAlt(alt([label('loc', 'SYDNEY, AUSTRALIA')]));
+  const v = has(r, 'all-caps-text');
+  expect(v).toBeTruthy();
+  expect(v.nodes).toContain('loc');
+});
+
+test('FP-guard: a short uppercase acronym / eyebrow is NOT all-caps body text', () => {
+  const r = scanAlt(alt([label('a', 'API'), label('b', 'NEW'), label('c', 'KPI')]));
+  expect(has(r, 'all-caps-text')).toBeUndefined();
+});
+
+test('FP-guard: sentence case is NOT all-caps', () => {
+  expect(has(scanAlt(alt([label('a', 'Sydney, Australia')])), 'all-caps-text')).toBeUndefined();
+});
+
+test('FP-guard: all-caps suppressed for posters (display uppercase is the intent)', () => {
+  const r = scanAlt(alt([label('t', 'SUMMER EXHIBITION', 64)]), { artifact_type: 'poster' });
+  expect(has(r, 'all-caps-text')).toBeUndefined();
+  expect(r.summary.suppressed.map((s) => s.id)).toContain('all-caps-text');
+});
+
+test('FP-guard: non-Latin text (no case distinction) is NOT all-caps', () => {
+  expect(has(scanAlt(alt([label('ko', '제품 카탈로그 대시보드')])), 'all-caps-text')).toBeUndefined();
+});
+
+test('vuln: pure-black-text flagged for #000000 on a light backdrop', () => {
+  const r = scanAlt(alt([label('t', 'Body copy in pure black', 16, { color: '#000000' })]));
+  const v = has(r, 'pure-black-text');
+  expect(v).toBeTruthy();
+  expect(v.nodes).toContain('t');
+});
+
+test('FP-guard: near-black (#111827) text is NOT pure black', () => {
+  expect(has(scanAlt(alt([label('t', 'Body copy', 16, { color: '#111827' })])), 'pure-black-text')).toBeUndefined();
+});
+
+test('FP-guard: black text on a DARK backdrop is a contrast problem, not the pure-black tell', () => {
+  const r = scanAlt(alt([label('t', 'Body copy', 16, { color: '#000000', bg: '#0b1120' })]));
+  expect(has(r, 'pure-black-text')).toBeUndefined();
+});
+
+test('vuln: low-contrast-ui flagged for an icon below 3:1 against its backdrop', () => {
+  const r = scanAlt(alt([
+    node('panel', 0, 0, 400, 300, { bg: '#ffffff' }),
+    icon('ico', 40, 40, true, { bg: '#e8e8e8' }), // ~1.3:1 on white
+  ], { w: 1000, h: 1000 }));
+  const v = has(r, 'low-contrast-ui');
+  expect(v).toBeTruthy();
+  expect(v.nodes).toContain('ico');
+});
+
+test('FP-guard: an icon above 3:1 against its backdrop is NOT low-contrast', () => {
+  const r = scanAlt(alt([
+    node('panel', 0, 0, 400, 300, { bg: '#ffffff' }),
+    icon('ico', 40, 40, true, { bg: '#767676' }), // ~4.5:1 on white
+  ], { w: 1000, h: 1000 }));
+  expect(has(r, 'low-contrast-ui')).toBeUndefined();
+});
+
+test('FP-guard: a large card on a near-white panel is NOT a low-contrast UI element', () => {
+  // flat design legitimately stacks #ffffff cards on #f9fafb surfaces; only small controls/icons
+  // carry the "can't see the shape" risk this signature is about.
+  const r = scanAlt(alt([
+    node('surface', 0, 0, 900, 900, { bg: '#f9fafb' }),
+    node('card', 40, 40, 500, 400, { bg: '#ffffff' }),
+  ], { w: 1000, h: 1000 }));
+  expect(has(r, 'low-contrast-ui')).toBeUndefined();
+});
+
+test('FP-guard: an element with no resolvable backdrop is not flagged (never guess a surface)', () => {
+  const r = scanAlt(alt([icon('ico', 40, 40, true, { bg: '#e8e8e8' })], { w: 1000, h: 1000 }));
+  expect(has(r, 'low-contrast-ui')).toBeUndefined();
+});
+
+test('vuln: new screen-UI signatures are advisory suggestionOnly like the rest', () => {
+  const r = scanAlt(alt([
+    label('loc', 'SYDNEY, AUSTRALIA', 14, { color: '#000000' }),
+    icon('i1', 0, 0, true), icon('i2', 40, 0, false), icon('i3', 80, 0, true),
+  ]));
+  for (const id of ['all-caps-text', 'pure-black-text', 'icon-fill-mix']) {
+    expect(has(r, id).mode).toBe('suggestionOnly');
+  }
+  expect(r.summary.advisory).toBe(true);
+});
+
+test('vuln: low-contrast-ui catches a low-contrast BUTTON, not just tiny icons', () => {
+  // empirical gap: a 140×44 primary button on a 390×700 phone canvas is 2.3% of the area, so an
+  // area-share cap excluded the exact case the guideline is about (button shape invisible at 1.3:1).
+  const r = scanAlt(alt([
+    node('page', 0, 0, 390, 700, { bg: '#ffffff' }),
+    node('cta', 16, 640, 140, 44, { bg: '#dce8fa' }), // ~1.3:1 on white
+  ], { w: 390, h: 700 }));
+  const v = has(r, 'low-contrast-ui');
+  expect(v).toBeTruthy();
+  expect(v.nodes).toContain('cta');
+});
+
+test('FP-guard: a tall panel/section is not a control (height guard), even at low contrast', () => {
+  const r = scanAlt(alt([
+    node('page', 0, 0, 1000, 1000, { bg: '#ffffff' }),
+    node('sidebar', 0, 0, 240, 900, { bg: '#fafafa' }),
+  ], { w: 1000, h: 1000 }));
+  expect(has(r, 'low-contrast-ui')).toBeUndefined();
+});
+
+test('FP-guard: a repeated tile pattern is a field, not a UI control (WCAG 1.4.11 exempts decoration)', () => {
+  // caught on examples/ground-truth-svg/*--whitespace--severe.svg: 96 identical 96×96 #cbd5e1
+  // clutter tiles on white (1.7:1). Low contrast, but a background pattern — not a control whose
+  // shape someone must perceive.
+  const tiles = [node('page', 0, 0, 1000, 1000, { bg: '#ffffff' })];
+  for (let i = 0; i < 12; i++) tiles.push(node(`t${i}`, (i % 4) * 100 + 10, Math.floor(i / 4) * 100 + 10, 96, 96, { bg: '#cbd5e1' }));
+  expect(has(scanAlt(alt(tiles, { w: 1000, h: 1000 })), 'low-contrast-ui')).toBeUndefined();
+});
+
+test('vuln: a small icon row (few siblings) at low contrast IS still flagged', () => {
+  const r = scanAlt(alt([
+    node('page', 0, 0, 1000, 1000, { bg: '#ffffff' }),
+    icon('i1', 40, 40, true, { bg: '#e8e8e8' }),
+    icon('i2', 80, 40, true, { bg: '#e8e8e8' }),
+    icon('i3', 120, 40, true, { bg: '#e8e8e8' }),
+  ], { w: 1000, h: 1000 }));
+  expect(has(r, 'low-contrast-ui')).toBeTruthy();
+});
