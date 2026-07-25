@@ -114,8 +114,8 @@
       "score": 1,
       "coverage": "measured",
       "metrics": {
-        "distinctHues": 1,
-        "momentBalance": 0,
+        "distinctHues": 0,
+        "momentBalance": 1,
         "analogousScore": 1,
         "birkhoff": 1,
         "harmonyScore": 1

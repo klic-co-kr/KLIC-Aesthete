@@ -401,3 +401,25 @@ test('low-contrast-ui (svg import): a control directly on the page is NOT flagge
   expect(alt.nodes[0].style.bg).toBe('#dce8fa');
   expect(has(scanAlt(alt), 'low-contrast-ui')).toBeUndefined();
 });
+
+test('FP-guard: desaturated slate-grey body copy is NOT the AI blue–purple palette', () => {
+  // Surfaced by ownColor(): once text contributes its GLYPH color, Tailwind-style neutral greys
+  // (#374151 → hue ~217, s≈0.19) landed inside the blue band and tripped the cliché signature on
+  // examples/catalog-bad.layout.json. The l-floor alone can't catch them — #374151 is l≈0.27, well
+  // clear of "near-black" — so chromatic-ness needs a SATURATION floor too.
+  const r = scanAlt(alt([
+    { id: 'a', kind: 'text', label: 'Body copy', bbox: { x: 0, y: 0, w: 100, h: 20 }, style: { opacity: 1, fontSize: 14, color: '#374151', bg: '#ffffff', role: 'body' } },
+    { id: 'b', kind: 'text', label: 'More copy', bbox: { x: 0, y: 40, w: 100, h: 20 }, style: { opacity: 1, fontSize: 14, color: '#4b5563', bg: '#ffffff', role: 'body' } },
+    { id: 'c', kind: 'text', label: 'Even more', bbox: { x: 0, y: 80, w: 100, h: 20 }, style: { opacity: 1, fontSize: 14, color: '#6b7280', bg: '#ffffff', role: 'body' } },
+  ]));
+  expect(has(r, 'ai-cliche-palette')).toBeUndefined();
+});
+
+test('vuln: genuinely saturated indigo/violet text still trips the AI palette signature', () => {
+  const r = scanAlt(alt([
+    { id: 'a', kind: 'text', label: 'x', bbox: { x: 0, y: 0, w: 100, h: 20 }, style: { opacity: 1, fontSize: 14, color: '#6366f1', bg: '#ffffff', role: 'body' } },
+    { id: 'b', kind: 'text', label: 'y', bbox: { x: 0, y: 40, w: 100, h: 20 }, style: { opacity: 1, fontSize: 14, color: '#8b5cf6', bg: '#ffffff', role: 'body' } },
+    { id: 'c', kind: 'text', label: 'z', bbox: { x: 0, y: 80, w: 100, h: 20 }, style: { opacity: 1, fontSize: 14, color: '#a855f7', bg: '#ffffff', role: 'body' } },
+  ]));
+  expect(has(r, 'ai-cliche-palette')).toBeTruthy();
+});
