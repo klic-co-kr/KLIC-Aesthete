@@ -234,14 +234,14 @@
       "violations": []
     },
     "harmony": {
-      "score": 1,
+      "score": 0.999,
       "coverage": "measured",
       "metrics": {
-        "distinctHues": 0,
-        "momentBalance": 1,
-        "analogousScore": 1,
+        "distinctHues": 1,
+        "momentBalance": 0.001,
+        "analogousScore": 0.999,
         "birkhoff": 1,
-        "harmonyScore": 1
+        "harmonyScore": 0.999
       },
       "effect": "보색 모멘트 평형 + analogous 그룹화(Birkhoff M=O/C, Munsell) → 색채 피로 감소, 지각적 안정·자연스러운 흐름.",
       "violations": []

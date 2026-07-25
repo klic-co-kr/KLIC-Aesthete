@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-ko.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **355 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **359 pass** ✅
 
 ---
 
@@ -222,7 +222,8 @@ test/            bun:test + golden.mjs (zero-dep)
   | Raster (ChatGPT / Nanobanana / …) | 해부학 오류·질감 artifact·조명 비일관성·주파수 지문 | **비전 모델 필요** (C2PA / 주파수 분석 / GAN 지문) | **범위 밖** — pure-JS no-browser 엔진은 비전 모델을 호스트할 수 없음; Phase 3 image/vision hook이 전제 |
 
   v2 스캐너 설계는 [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md) 참고.
-- **화면 UI 가이드라인 시그니처는 ALT가 담고 있는 것만 커버한다.** 구현된 4개(icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui)는 이미 존재하는 필드(`style.filled`·`label`·`style.color`·`style.bg`·기하)만 쓴다. 나머지 표준 화면 타이포 규칙은 **미구현** — ALT에 필드가 없고 어떤 어댑터도 추출하지 않기 때문: 폰트 웨이트(regular/bold만), 서체 개수·serif 여부, `text-decoration`(색만으로 링크 표시 금지), 텍스트 정렬, line-height 1.5 이상. 이들은 시그니처 추가가 아니라 **ALT 스키마 + 어댑터 변경**이다. **x-height**(소문자 높이가 큰 서체 선호)는 폰트별 metric 테이블이 필요해 **측정 불가**로 남긴다 — 약한 프록시를 측정값으로 포장하는 것이 바로 `coverage`가 막으려는 것이므로 대체 지표를 제공하지 않는다. `low-contrast-ui`도 의도적으로 컨트롤 형태·비반복 요소로 좁혔다: 동일한 저대비 아이콘이 4개를 넘는 툴바는 탐지되지 않는다(위양성 대신 위음성을 택함).
+- **화면 UI 가이드라인 시그니처는 ALT가 담고 있는 것만 커버한다.** 구현된 4개(icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui)는 이미 존재하는 필드(`style.filled`·`label`·`style.color`·`style.bg`·기하)만 쓴다. 나머지 표준 화면 타이포 규칙은 **미구현** — ALT에 필드가 없고 어떤 어댑터도 추출하지 않기 때문: 폰트 웨이트(regular/bold만), 서체 개수·serif 여부, `text-decoration`(색만으로 링크 표시 금지), 텍스트 정렬, line-height 1.5 이상. 이들은 시그니처 추가가 아니라 **ALT 스키마 + 어댑터 변경**이다. **x-height**(소문자 높이가 큰 서체 선호)는 폰트별 metric 테이블이 필요해 **측정 불가**로 남긴다 — 약한 프록시를 측정값으로 포장하는 것이 바로 `coverage`가 막으려는 것이므로 대체 지표를 제공하지 않는다. `low-contrast-ui`도 의도적으로 컨트롤 형태·비반복 요소로 좁혔다: 동일한 저대비 아이콘이 4개를 넘는 툴바는 탐지되지 않는다(위양성 대신 위음성을 택함). **그리고 SVG import 경로에서는 범위가 더 좁다** — 임포터가 전체 캔버스 배경을 leaf에서 제거하므로, 페이지 위에 직접 놓인 요소는 해석 가능한 배경면이 없고 시그니처는 이를 추측하지 않는다. 즉 SVG 커버리지는 **보존된 컨테이너(카드·패널·섹션) 내부 요소**에 한정된다. 명시적 페이지 배경 노드를 갖는 수작성 ALT·html import는 전체 커버리지를 받는다. `test/vuln.test.mjs`가 이 경계를 고정한다.
+- **PPTX의 `hierarchy` 대비는 사실상 측정되지 않는다**(기존 사안): `lib/adapters/pptx.mjs`가 run property를 읽지 않고 모든 도형에 `color:'#111827'`/`bg:'#ffffff'`를 하드코딩하므로 대비는 상수 ~17:1인데 `coverage`는 `measured`로 보고된다. PPTX 대비 수치는 '통과'가 아니라 '미추출'로 읽어야 한다.
 - **범위 밖**(인프라 필요): 실제 GRPO 학습 루프(LLM 훈련), 물리적 다중 에이전트 세션 분리(본 스킬은 "평가자=산술"로 동등 효과 달성), PPTX 슬라이드 마스터/테마, **raster-image slop 탐지**(비전 모델 필요).
 
 ---

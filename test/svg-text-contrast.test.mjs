@@ -105,3 +105,30 @@ test('integration: the clean reference SVG no longer fails hierarchy on contrast
   const report = measureAlt(importSvg(svg));
   expect(report.skills.hierarchy.metrics.contrastAdequacy).toBe(1);
 });
+
+// ---------------------------------------------------------------------------
+// Regression: moving the glyph fill out of style.bg must NOT blind the palette
+// consumers. harmony/similarity/symmetry/vuln read a node's OWN color, which for
+// a text node is its foreground — not the surface behind it.
+// ---------------------------------------------------------------------------
+
+test('regression: clashing text colors in one group stay visible to similarity', () => {
+  // two headings, same category, same size, on the same white card — only the glyph color differs
+  const alt = importSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+    <rect width="600" height="400" fill="#ffffff"/>
+    <rect x="20" y="20" width="560" height="300" fill="#ffffff"/>
+    <text x="40" y="80" font-size="24" fill="#dc2626" data-category="hdr">Red heading</text>
+    <text x="40" y="160" font-size="24" fill="#1d4ed8" data-category="hdr">Navy heading</text>
+  </svg>`);
+  const r = measureAlt(alt);
+  expect(r.skills.similarity.metrics.inconsistentGroups).toBeGreaterThan(0);
+});
+
+test('regression: text glyph hues still reach the harmony color wheel', () => {
+  const alt = importSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+    <rect width="600" height="400" fill="#ffffff"/>
+    <text x="40" y="80" font-size="24" fill="#dc2626">Red heading</text>
+    <text x="40" y="160" font-size="24" fill="#1d4ed8">Navy heading</text>
+  </svg>`);
+  expect(measureAlt(alt).skills.harmony.metrics.distinctHues).toBeGreaterThan(0);
+});

@@ -1,5 +1,6 @@
 import { test, expect } from 'bun:test';
 import { scanAlt } from '../lib/vuln.mjs';
+import { importSvg } from '../lib/adapters/svg.mjs';
 
 const node = (id, x, y, w, h, style = {}, category) => ({
   id, kind: 'box', category, bbox: { x, y, w, h },
@@ -333,6 +334,8 @@ test('vuln: new screen-UI signatures are advisory suggestionOnly like the rest',
 test('vuln: low-contrast-ui catches a low-contrast BUTTON, not just tiny icons', () => {
   // empirical gap: a 140×44 primary button on a 390×700 phone canvas is 2.3% of the area, so an
   // area-share cap excluded the exact case the guideline is about (button shape invisible at 1.3:1).
+  // PRECONDITION: the ALT carries an explicit page-surface node. Hand-authored ALTs and html
+  // imports do; an SVG import does NOT — see the import-path scope tests below.
   const r = scanAlt(alt([
     node('page', 0, 0, 390, 700, { bg: '#ffffff' }),
     node('cta', 16, 640, 140, 44, { bg: '#dce8fa' }), // ~1.3:1 on white
@@ -367,4 +370,34 @@ test('vuln: a small icon row (few siblings) at low contrast IS still flagged', (
     icon('i3', 120, 40, true, { bg: '#e8e8e8' }),
   ], { w: 1000, h: 1000 }));
   expect(has(r, 'low-contrast-ui')).toBeTruthy();
+});
+
+// --- low-contrast-ui: real scope on the SVG import path --------------------
+// parseSvgLeaves DROPS full-canvas backdrops (≥90% of the canvas) from the leaf list, so an
+// element sitting directly on the page has NO resolvable surface after import. The signature
+// refuses to guess one, which means its SVG coverage is elements inside a RETAINED container
+// (card, panel, section) — not "any UI element". Pinned here so the limitation can't drift into
+// an assumed capability; the honest-limitations section in README.md states it.
+
+test('low-contrast-ui (svg import): a control inside a retained panel IS flagged', () => {
+  const alt = importSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="390" height="700" viewBox="0 0 390 700">
+    <rect width="390" height="700" fill="#ffffff"/>
+    <rect x="16" y="16" width="358" height="240" fill="#ffffff"/>
+    <circle cx="346" cy="44" r="14" fill="#f4f6f8"/>
+  </svg>`);
+  const v = has(scanAlt(alt), 'low-contrast-ui');
+  expect(v).toBeTruthy();
+  expect(v.nodes).toContain('circle-2');
+});
+
+test('low-contrast-ui (svg import): a control directly on the page is NOT flagged (page rect dropped)', () => {
+  const alt = importSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="390" height="700" viewBox="0 0 390 700">
+    <rect width="390" height="700" fill="#ffffff"/>
+    <rect x="16" y="640" width="140" height="44" fill="#dce8fa"/>
+  </svg>`);
+  // the full-canvas page rect is not a leaf: only the CTA survives, so it has no surface to
+  // be compared against
+  expect(alt.nodes.length).toBe(1);
+  expect(alt.nodes[0].style.bg).toBe('#dce8fa');
+  expect(has(scanAlt(alt), 'low-contrast-ui')).toBeUndefined();
 });
