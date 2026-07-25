@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { importSvg } from '../lib/adapters/svg.mjs';
+import { importSvg, exportSvg } from '../lib/adapters/svg.mjs';
 import { measureAlt } from '../lib/measure.mjs';
 import { contrastRatio } from '../lib/color.mjs';
 
@@ -131,4 +131,22 @@ test('regression: text glyph hues still reach the harmony color wheel', () => {
     <text x="40" y="160" font-size="24" fill="#1d4ed8">Navy heading</text>
   </svg>`);
   expect(measureAlt(alt).skills.harmony.metrics.distinctHues).toBeGreaterThan(0);
+});
+
+test('round-trip: svg text keeps its glyph color through import → export → import', () => {
+  // exportSvg emits text `fill` from style.color, so the contract fix also repaired the
+  // round-trip: an imported <text fill="#dc2626"> used to come back out as the hardcoded
+  // '#111827'. Pinned here because nothing else asserts it — lib/diffview.mjs renders
+  // before/after SVG through exactly this path, and a silent inversion would paint invisible type.
+  const src = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
+    <rect width="400" height="200" fill="#ffffff"/>
+    <text x="20" y="100" font-size="16" fill="#dc2626">red type</text>
+  </svg>`;
+  const out = exportSvg(importSvg(src));
+  expect(out).toContain('fill="#dc2626"');
+  const back = importSvg(out);
+  const t = back.nodes.find((n) => n.kind === 'text');
+  expect(t.style.color).toBe('#dc2626');
+  // and the re-imported text still resolves a legible backdrop, not its own glyph color
+  expect(t.style.bg).toBe('#ffffff');
 });

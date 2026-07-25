@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-en.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **359 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **365 pass** ✅
 
 ---
 
