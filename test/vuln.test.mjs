@@ -423,3 +423,45 @@ test('vuln: genuinely saturated indigo/violet text still trips the AI palette si
   ]));
   expect(has(r, 'ai-cliche-palette')).toBeTruthy();
 });
+
+// --- adapter placeholder data must not manufacture findings --------------------
+// lib/adapters/pptx.mjs gives EVERY shape a text role and label = text || shape-id || 'shape',
+// and (before this) hardcoded color/bg it never read from the file. Signatures that consume
+// those uncritically invent defects out of unextracted data.
+
+const pptxSp = (id, text, spId, x, y, w, h, sz = 18) => ({
+  id, label: text || spId || 'shape', category: id,
+  kind: text ? 'text' : 'box',
+  bbox: { x, y, w, h },
+  style: { fontSize: sz, luminance: 0.1, role: sz >= 22 ? 'heading' : 'body' },
+});
+
+test('FP-guard: a PowerPoint shape id is not copy — all-caps must not fire on it', () => {
+  // an untexted <p:sp> carries its shape id as `label` (CONTENT_PANEL, ACCENT_BAR). It is
+  // explicitly kind:'box', so a text role alone must not promote it to readable copy.
+  const r = scanAlt(alt([
+    pptxSp('sp-0', '', 'CONTENT_PANEL', 40, 60, 800, 300),
+    pptxSp('sp-1', '', 'ACCENT_BAR', 60, 80, 120, 40),
+    pptxSp('sp-2', 'Quarterly revenue', null, 60, 400, 400, 30),
+  ], { w: 960, h: 540 }));
+  expect(has(r, 'all-caps-text')).toBeUndefined();
+});
+
+test('FP-guard: an ALT with a text role but no `kind` is still treated as copy', () => {
+  // the TEXT_ROLES branch exists for hand-authored ALTs that set role without kind — keep it
+  const r = scanAlt(alt([
+    { id: 'a', label: 'SYDNEY, NEW SOUTH WALES', category: 'a', bbox: { x: 0, y: 0, w: 300, h: 20 },
+      style: { fontSize: 14, color: '#374151', bg: '#ffffff', role: 'body' } },
+  ]));
+  expect(has(r, 'all-caps-text')).toBeTruthy();
+});
+
+test('FP-guard: nodes with no extracted fill produce no low-contrast finding', () => {
+  // a nested pptx shape: both it and its panel had bg hardcoded to #ffffff by the adapter, so
+  // "1:1 contrast" described the placeholder, not the slide.
+  const r = scanAlt(alt([
+    pptxSp('sp-0', '', 'CONTENT_PANEL', 40, 60, 800, 300),
+    pptxSp('sp-1', '', 'ACCENT_BAR', 60, 80, 120, 40),
+  ], { w: 960, h: 540 }));
+  expect(has(r, 'low-contrast-ui')).toBeUndefined();
+});

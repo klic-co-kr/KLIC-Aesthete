@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-en.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **365 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **374 pass** ✅
 
 ---
 
@@ -230,7 +230,7 @@ The correction `outcome` enum: `pass | best-effort | no-improvement | budget-exh
 
   See [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md) for the v2 scanner design.
 - **Screen-UI guideline signatures cover only what ALT carries.** The four shipped signatures (icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui) use fields that already exist in ALT — `style.filled`, `label`, `style.color`, `style.bg`, geometry. The rest of the standard screen-UI typography rules are **not implemented**, because ALT has no field for them and no adapter extracts them: font weight (regular/bold only), typeface count / serif-vs-sans, `text-decoration` (don't signal a link by colour alone), text alignment, and line-height ≥1.5. Adding them is an ALT-schema + adapter change, not a signature change. **x-height** (prefer typefaces with taller lowercase) needs per-font metric tables and stays **unmeasurable** — no proxy is offered, because a weak proxy scored as a measurement is exactly what `coverage` exists to prevent. `low-contrast-ui` is also deliberately narrowed to control-shaped, non-repeated elements: a toolbar of >4 identical low-contrast icons goes unflagged (a false negative traded for a false positive). **And on the SVG import path its reach is narrower still**: the importer drops full-canvas backdrops, so an element sitting directly on the page has no resolvable surface and the signature refuses to guess one — SVG coverage is elements inside a *retained* container (card, panel, section). Hand-authored ALT and html imports that carry an explicit page-surface node get full coverage. Pinned by tests in `test/vuln.test.mjs` so it can't drift into an assumed capability.
-- **`hierarchy` contrast on PPTX is not really measured** (pre-existing): `lib/adapters/pptx.mjs` hardcodes `color:'#111827'` / `bg:'#ffffff'` for every shape rather than reading run properties, so contrast is a constant ~17:1 while `coverage` still says `measured`. Read PPTX contrast numbers as "not extracted", not "passing".
+- **PPTX carries no color at all.** `lib/adapters/pptx.mjs` does not read `<a:solidFill>`/theme colors, so it emits no `style.color`/`style.bg` rather than asserting defaults. Consequence, stated plainly: on a PPTX import `hierarchy` reports `coverage: partial` (font-scale measured, contrast not), and the colour-dependent vuln signatures stay silent. Earlier it hardcoded `#111827` on `#ffffff`, which reported a constant ~17:1 contrast as `measured` and made any nested shape read as white-on-white — a manufactured WCAG 1.4.11 finding on every deck. `hierarchy` coverage is now three-way (`measured` / `partial` / `unmeasurable`) so a half-defaulted `clarity` can't present as fully measured; `partial` still counts as measured for `measuredAestheticScore`, so no score moved.
 - **Out of scope** (needs infrastructure): a real GRPO training loop (LLM training), physical multi-agent session isolation (this skill achieves the equivalent via "evaluator = arithmetic"), PPTX slide masters/themes, **raster-image slop detection** (vision model required).
 
 ---

@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-ko.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **365 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **374 pass** ✅
 
 ---
 
@@ -223,7 +223,7 @@ test/            bun:test + golden.mjs (zero-dep)
 
   v2 스캐너 설계는 [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md) 참고.
 - **화면 UI 가이드라인 시그니처는 ALT가 담고 있는 것만 커버한다.** 구현된 4개(icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui)는 이미 존재하는 필드(`style.filled`·`label`·`style.color`·`style.bg`·기하)만 쓴다. 나머지 표준 화면 타이포 규칙은 **미구현** — ALT에 필드가 없고 어떤 어댑터도 추출하지 않기 때문: 폰트 웨이트(regular/bold만), 서체 개수·serif 여부, `text-decoration`(색만으로 링크 표시 금지), 텍스트 정렬, line-height 1.5 이상. 이들은 시그니처 추가가 아니라 **ALT 스키마 + 어댑터 변경**이다. **x-height**(소문자 높이가 큰 서체 선호)는 폰트별 metric 테이블이 필요해 **측정 불가**로 남긴다 — 약한 프록시를 측정값으로 포장하는 것이 바로 `coverage`가 막으려는 것이므로 대체 지표를 제공하지 않는다. `low-contrast-ui`도 의도적으로 컨트롤 형태·비반복 요소로 좁혔다: 동일한 저대비 아이콘이 4개를 넘는 툴바는 탐지되지 않는다(위양성 대신 위음성을 택함). **그리고 SVG import 경로에서는 범위가 더 좁다** — 임포터가 전체 캔버스 배경을 leaf에서 제거하므로, 페이지 위에 직접 놓인 요소는 해석 가능한 배경면이 없고 시그니처는 이를 추측하지 않는다. 즉 SVG 커버리지는 **보존된 컨테이너(카드·패널·섹션) 내부 요소**에 한정된다. 명시적 페이지 배경 노드를 갖는 수작성 ALT·html import는 전체 커버리지를 받는다. `test/vuln.test.mjs`가 이 경계를 고정한다.
-- **PPTX의 `hierarchy` 대비는 사실상 측정되지 않는다**(기존 사안): `lib/adapters/pptx.mjs`가 run property를 읽지 않고 모든 도형에 `color:'#111827'`/`bg:'#ffffff'`를 하드코딩하므로 대비는 상수 ~17:1인데 `coverage`는 `measured`로 보고된다. PPTX 대비 수치는 '통과'가 아니라 '미추출'로 읽어야 한다.
+- **PPTX는 색을 전혀 담지 않는다.** `lib/adapters/pptx.mjs`는 `<a:solidFill>`·테마 색을 읽지 않으므로, 기본값을 단정하는 대신 `style.color`/`style.bg`를 **아예 내보내지 않는다**. 결과를 그대로 적으면: PPTX import에서 `hierarchy`는 `coverage: partial`(폰트 스케일은 측정, 대비는 미측정)이고 색 기반 vuln 시그니처는 침묵한다. 이전에는 `#111827`/`#ffffff`를 하드코딩해 상수 ~17:1 대비를 `measured`로 보고했고, 중첩 도형은 white-on-white로 읽혀 **모든 덱에서 WCAG 1.4.11 오탐**을 만들어냈다. `hierarchy` coverage는 이제 3단(`measured`/`partial`/`unmeasurable`)이라 절반만 측정된 `clarity`가 완전 측정으로 위장하지 못한다. `partial`도 `measuredAestheticScore` 계산에서는 measured로 취급되므로 점수 변화는 없다.
 - **범위 밖**(인프라 필요): 실제 GRPO 학습 루프(LLM 훈련), 물리적 다중 에이전트 세션 분리(본 스킬은 "평가자=산술"로 동등 효과 달성), PPTX 슬라이드 마스터/테마, **raster-image slop 탐지**(비전 모델 필요).
 
 ---

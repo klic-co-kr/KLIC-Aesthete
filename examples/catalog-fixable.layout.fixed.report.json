@@ -100,7 +100,7 @@
     },
     "hierarchy": {
       "score": 1,
-      "coverage": "measured",
+      "coverage": "partial",
       "metrics": {
         "clarity": 1,
         "stepRegularity": 1,

@@ -150,3 +150,41 @@ test('round-trip: svg text keeps its glyph color through import → export → i
   // and the re-imported text still resolves a legible backdrop, not its own glyph color
   expect(t.style.bg).toBe('#ffffff');
 });
+
+// --- backdrop resolution must survive ESTIMATED text widths -------------------
+// There is no renderer here: estimateTextWidth() approximates glyph advance from font-size.
+// Strict containment therefore flips the backdrop the moment the estimate overshoots the card,
+// which scored light-on-dark type as a contrast failure against the page. The honest question is
+// "which surface is MOST of the element on", not "is it perfectly inside".
+
+test('svg text: a snug card is still the backdrop when the width estimate overshoots it', () => {
+  const alt = importSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300">
+    <rect width="600" height="300" fill="#ffffff"/>
+    <rect x="20" y="20" width="200" height="100" fill="#0b1120"/>
+    <text id="t" x="30" y="80" font-size="16" fill="#f8fafc">Light copy on a dark card</text>
+  </svg>`);
+  const t = alt.nodes.find((n) => n.id === 't');
+  expect(t.bbox.w).toBeGreaterThan(200);        // the estimate really does exceed the card
+  expect(t.style.bg).toBe('#0b1120');           // still resolved to the card
+  expect(measureAlt(alt).skills.hierarchy.metrics.contrastAdequacy).toBe(1);
+});
+
+test('svg text: a sliver of a card is NOT the backdrop (minority overlap falls back)', () => {
+  const alt = importSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+    <rect width="600" height="400" fill="#ffffff"/>
+    <rect x="20" y="20" width="40" height="100" fill="#1d4ed8"/>
+    <text id="t" x="30" y="80" font-size="16" fill="#111827">this text runs far past the little card</text>
+  </svg>`);
+  expect(alt.nodes.find((n) => n.id === 't').style.bg).toBe('#ffffff');
+});
+
+test('own color: a stroke-only outline icon contributes its STROKE, not a default white', () => {
+  // lucide-style icons are fill="none" stroke="…". Their visible color is the stroke; reporting
+  // the unfilled default made two clashing outline icons look identical to similarity.
+  const alt = importSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+    <rect width="200" height="200" fill="#ffffff"/>
+    <circle cx="40" cy="40" r="12" fill="none" stroke="#dc2626" data-category="ico"/>
+    <circle cx="80" cy="40" r="12" fill="none" stroke="#1d4ed8" data-category="ico"/>
+  </svg>`);
+  expect(measureAlt(alt).skills.similarity.metrics.inconsistentGroups).toBeGreaterThan(0);
+});
