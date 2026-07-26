@@ -578,6 +578,34 @@
         }
       ]
     },
+    "intentBinding": {
+      "type": "object",
+      "required": ["status", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["bound", "not_requested"] },
+        "sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/digest" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "bound" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": { "sha256": { "$ref": "#/$defs/digest" } }
+          },
+          "else": {
+            "properties": { "sha256": { "type": "null" } }
+          }
+        }
+      ]
+    },
     "actionInputs": {
       "type": "object",
       "required": [
@@ -669,7 +697,7 @@
         }
       ]
     },
-    "binding": {
+    "bindingV1": {
       "type": "object",
       "required": [
         "schema",
@@ -725,6 +753,72 @@
             }
           }
         }
+      ]
+    },
+    "bindingV2": {
+      "type": "object",
+      "required": [
+        "schema",
+        "algorithm",
+        "integrity",
+        "completeness",
+        "artifact",
+        "contract",
+        "intent",
+        "action_inputs",
+        "policy",
+        "policy_sha256",
+        "decision_core_sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "const": "aesthete.binding/v2" },
+        "algorithm": { "const": "sha256" },
+        "integrity": {
+          "const": "content_freshness_and_internal_consistency_not_authenticity"
+        },
+        "completeness": { "enum": ["complete", "incomplete"] },
+        "artifact": { "$ref": "#/$defs/artifactBinding" },
+        "contract": { "$ref": "#/$defs/contractBinding" },
+        "intent": { "$ref": "#/$defs/intentBinding" },
+        "action_inputs": { "$ref": "#/$defs/actionInputs" },
+        "policy": { "$ref": "#/$defs/policy" },
+        "policy_sha256": { "$ref": "#/$defs/digest" },
+        "decision_core_sha256": { "$ref": "#/$defs/digest" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "completeness": { "const": "complete" } },
+            "required": ["completeness"]
+          },
+          "then": {
+            "properties": {
+              "artifact": {
+                "properties": {
+                  "status": { "const": "bound" },
+                  "sha256": { "$ref": "#/$defs/digest" }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "artifact": {
+                "properties": {
+                  "status": { "const": "unreadable" },
+                  "sha256": { "type": "null" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "binding": {
+      "oneOf": [
+        { "$ref": "#/$defs/bindingV1" },
+        { "$ref": "#/$defs/bindingV2" }
       ]
     }
   }

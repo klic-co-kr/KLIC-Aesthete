@@ -7,8 +7,11 @@ import {
   ReceiptCurrentInputError,
   buildClaimScope,
   buildDecisionBinding,
+  buildDecisionBindingV2,
   decisionCore,
+  validateReceiptShape,
   validateReceiptV1Shape,
+  validateReceiptV2Shape,
   verifyDecisionBinding,
 } from '../lib/skill-receipt-core.mjs';
 import { captureSchemaBundle } from '../lib/skill-snapshot.mjs';
@@ -195,6 +198,37 @@ function receiptDecision(overrides = {}, bindingOverrides = {}) {
   return decision;
 }
 
+function receiptDecisionV2(intent = {
+  status: 'bound',
+  sha256: digest('9'),
+}) {
+  const decision = {
+    ...structuredClone(legacyDecision),
+    claim_scope: buildClaimScope({ report: passReport }),
+  };
+  decision.binding = buildDecisionBindingV2({
+    decision,
+    completeness: 'complete',
+    artifact_sha256: digest('a'),
+    contract: { status: 'not_requested', sha256: null },
+    intent,
+    action_inputs: { status: 'not_required' },
+    policy: literalPolicyFixture(),
+  });
+  return decision;
+}
+
+function currentV2(intent = {
+  status: 'bound',
+  sha256: digest('9'),
+}) {
+  return {
+    ...structuredClone(current),
+    artifact_sha256: digest('a'),
+    intent: structuredClone(intent),
+  };
+}
+
 const ALL_CHECKED = [
   'decision_core_sha256',
   'artifact.sha256',
@@ -203,6 +237,130 @@ const ALL_CHECKED = [
   'action_inputs',
   'policy_sha256',
 ];
+
+test('v2 binding adds exact intent state while v1 remains pinned', () => {
+  const v2 = receiptDecisionV2();
+  expect(Object.keys(v2.binding)).toEqual([
+    'schema',
+    'algorithm',
+    'integrity',
+    'completeness',
+    'artifact',
+    'contract',
+    'intent',
+    'action_inputs',
+    'policy',
+    'policy_sha256',
+    'decision_core_sha256',
+  ]);
+  expect(v2.binding.schema).toBe('aesthete.binding/v2');
+  expect(validateReceiptV1Shape(v2).status).toBe('invalid');
+  expect(validateReceiptV2Shape(v2)).toEqual({ status: 'bound', issues: [] });
+  expect(validateReceiptShape(v2)).toEqual({ status: 'bound', issues: [] });
+  expect(validateReceiptShape(receiptDecision()))
+    .toEqual({ status: 'bound', issues: [] });
+});
+
+test('v2 intent change is stale after contract and before action', () => {
+  const decision = {
+    ...structuredClone(legacyDecision),
+    decision: 'fix_geometry',
+    next: {
+      action: 'run_fix_p0',
+      fix_cmd: ['bun', 'lib/fix.mjs'],
+      loop_hint_max: 2,
+    },
+    claim_scope: buildClaimScope({ report: passReport }),
+  };
+  decision.binding = buildDecisionBindingV2({
+    decision,
+    completeness: 'complete',
+    artifact_sha256: digest('c'),
+    contract: { status: 'not_requested', sha256: null },
+    intent: { status: 'bound', sha256: digest('9') },
+    action_inputs: boundAction,
+    policy: literalPolicyFixture(),
+  });
+  const changed = {
+    ...structuredClone(current),
+    contract: { status: 'bound', sha256: digest('b') },
+    intent: { status: 'bound', sha256: digest('8') },
+    action_inputs: {
+      ...structuredClone(boundAction),
+      script_locator_sha256: digest('f'),
+    },
+    policy: literalPolicyFixture({ profile: 'strict' }),
+  };
+  const result = verifyDecisionBinding(decision, changed);
+  expect(result.issues.slice(0, 4)).toEqual([
+    { code: 'CONTRACT_CHANGED' },
+    { code: 'INTENT_CHANGED' },
+    { code: 'ACTION_CHANGED' },
+    { code: 'POLICY_CHANGED' },
+  ]);
+  expect(result.checked).toContain('intent.status');
+  expect(result.checked).toContain('intent.sha256');
+});
+
+test('bound stored intent requires a current bound intent', () => {
+  const decision = receiptDecisionV2();
+  const changed = currentV2({ status: 'not_requested', sha256: null });
+  expect(() => verifyDecisionBinding(decision, changed))
+    .toThrow(ReceiptCurrentInputError);
+});
+
+test('not-requested stored intent becomes stale when current intent is supplied', () => {
+  const decision = receiptDecisionV2({
+    status: 'not_requested',
+    sha256: null,
+  });
+  const changed = currentV2({ status: 'bound', sha256: digest('8') });
+  expect(verifyDecisionBinding(decision, changed).issues)
+    .toEqual([{ code: 'INTENT_CHANGED' }]);
+});
+
+test('v1 and v2 reject each other exact fields and unknown versions', () => {
+  const v1WithIntent = receiptDecision();
+  v1WithIntent.binding.intent = { status: 'not_requested', sha256: null };
+  expect(validateReceiptV1Shape(v1WithIntent).status).toBe('invalid');
+
+  const v2WithoutIntent = receiptDecisionV2();
+  delete v2WithoutIntent.binding.intent;
+  expect(validateReceiptV2Shape(v2WithoutIntent).status).toBe('invalid');
+
+  const unknown = receiptDecisionV2();
+  unknown.binding.schema = 'aesthete.binding/v3';
+  expect(validateReceiptShape(unknown)).toEqual({
+    status: 'invalid',
+    issues: [{ code: 'RECEIPT_SCHEMA_INVALID' }],
+  });
+});
+
+test('v2 intent binding rejects extra fields and malformed digests', () => {
+  const extra = receiptDecisionV2();
+  extra.binding.intent.extra = true;
+  expect(validateReceiptV2Shape(extra).status).toBe('invalid');
+
+  const uppercase = receiptDecisionV2();
+  uppercase.binding.intent.sha256 = 'A'.repeat(64);
+  expect(validateReceiptV2Shape(uppercase).status).toBe('invalid');
+});
+
+test('v1 current comparison rejects a v2 intent field', () => {
+  expect(() => verifyDecisionBinding(receiptDecision(), {
+    ...structuredClone(current),
+    intent: { status: 'not_requested', sha256: null },
+  })).toThrow(ReceiptCurrentInputError);
+});
+
+test('mutable decision schema accepts exact v2 and rejects malformed intent', async () => {
+  const validator = await createRunValidator(captureSchemaBundle(repoRoot));
+  const exact = receiptDecisionV2();
+  expect(() => validator.validate('decision', exact)).not.toThrow();
+  const malformed = structuredClone(exact);
+  malformed.binding.intent.sha256 = null;
+  expect(() => validator.validate('decision', malformed)).toThrow();
+});
 
 test('claim scope emits the exact schema, rule order, and limitation order', () => {
   const scope = buildClaimScope({});

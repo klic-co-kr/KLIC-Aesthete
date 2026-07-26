@@ -121,3 +121,43 @@ Gate: READY. No production correction was required after the post-review.
 - `git diff --check`: pass.
 
 Gate: READY. Contract snapshot behavior remained unchanged.
+
+## Task 4 — Receipt v2 core
+
+### Pre-review
+
+- Existing v1 builder output and exact v1 validator remain byte/shape compatible.
+- V1 validator must reject a v2 binding; generic dispatch accepts both.
+- V2 adds only `intent` between `contract` and `action_inputs`.
+- Intent is outside policy and outside decision core.
+- `INTENT_CHANGED` sorts after `CONTRACT_CHANGED`.
+- Gate: READY when v1 and v2 APIs have distinct names and tests.
+
+### RED
+
+- The focused core run failed at module loading because
+  `validateReceiptShape` and the v2 exports did not exist.
+
+### GREEN
+
+- `bun test test/skill-receipt-core.test.mjs`: 86 pass, 0 fail.
+- `bun test test/skill-snapshot.test.mjs test/skill-action.test.mjs`:
+  118 pass, 0 fail.
+
+### Post-review
+
+- Exact v1 output and validator remain separate from v2.
+- Mutable JSON Schema accepts exact v2 and rejects a bound intent with null
+  digest.
+- V2 rejects missing intent, extra intent fields, uppercase digest, and
+  unknown binding versions.
+- V1 rejects both stored and current v2 intent fields.
+- Bound v2 requires current bound intent; not-requested versus supplied intent
+  yields `INTENT_CHANGED`.
+- Issue order is contract, intent, action, policy.
+- `decisionCore()` remains the same seven-field projection with no intent.
+- `bun test test/skill-receipt-core.test.mjs --rerun-each 2`:
+  178 pass, 0 fail.
+- `git diff --check`: pass.
+
+Gate: READY. No high-impact finding remained.
