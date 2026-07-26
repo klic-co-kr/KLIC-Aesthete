@@ -360,7 +360,7 @@
                 "properties": {
                   "relative_path": {
                     "type": "string",
-                    "pattern": "^schemas/[A-Za-z0-9._-]+\\.json$"
+                    "pattern": "^schemas/[^/\\\\]+\\.json$"
                   }
                 }
               }
@@ -390,7 +390,7 @@
                       },
                       {
                         "type": "string",
-                        "pattern": "^lib/(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\\.mjs$"
+                        "pattern": "^lib/(?!\\.\\.?(?:/|$))(?!.*\\/\\.\\.?(?:/|$))(?!.*\\\\)[^/]+(?:/[^/]+)*\\.mjs$"
                       }
                     ]
                   }

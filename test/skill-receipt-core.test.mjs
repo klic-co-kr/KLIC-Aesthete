@@ -730,11 +730,6 @@ test.each([
     'CONTRACT_CHANGED',
   ],
   [
-    'action inputs',
-    (value) => { value.action_inputs = boundAction; },
-    'ACTION_CHANGED',
-  ],
-  [
     'policy',
     (value) => { value.policy.profile = 'changed'; },
     'POLICY_CHANGED',
@@ -747,6 +742,31 @@ test.each([
     issues: [expect.objectContaining({ code })],
     checked: ALL_CHECKED,
   });
+});
+
+test('a changed bound action is stale for a fix decision', () => {
+  const decision = receiptDecision({
+    decision: 'fix_geometry',
+    next: {
+      action: 'run_fix_p0',
+      loop_hint_max: 2,
+      fix_cmd: ['/bun', '/fix', '/artifact'],
+    },
+  }, { action_inputs: boundAction });
+  const changed = structuredClone(current);
+  changed.action_inputs = structuredClone(boundAction);
+  changed.action_inputs.artifact_locator_sha256 = digest('f');
+  expect(verifyDecisionBinding(decision, changed)).toEqual({
+    status: 'stale',
+    issues: [{ code: 'ACTION_CHANGED' }],
+    checked: ALL_CHECKED,
+  });
+});
+
+test('current action status must remain coherent with the stored decision', () => {
+  const changed = structuredClone(current);
+  changed.action_inputs = structuredClone(boundAction);
+  expectCurrentInputError(() => verifyDecisionBinding(receiptDecision(), changed));
 });
 
 test('schema and installation changes merge without loss in stable issue order', () => {
@@ -790,6 +810,48 @@ test('schema and installation changes merge without loss in stable issue order',
       },
     ],
     checked: ALL_CHECKED,
+  });
+});
+
+test('stale manifest paths use raw lexical order rather than locale collation', () => {
+  const changed = structuredClone(current);
+  changed.schemaComparison = {
+    matches: false,
+    changes: [
+      { code: 'MANIFEST_FILE_CHANGED', relative_path: 'schemas/Z.schema.json' },
+      { code: 'MANIFEST_FILE_CHANGED', relative_path: 'schemas/a.schema.json' },
+    ],
+  };
+  expect(verifyDecisionBinding(receiptDecision(), changed).issues).toEqual([
+    {
+      code: 'MANIFEST_FILE_CHANGED',
+      manifest_kind: 'schemas',
+      relative_path: 'schemas/Z.schema.json',
+    },
+    {
+      code: 'MANIFEST_FILE_CHANGED',
+      manifest_kind: 'schemas',
+      relative_path: 'schemas/a.schema.json',
+    },
+  ]);
+});
+
+test('all computable invalid-class issues are returned in published code order', () => {
+  const decision = receiptDecision();
+  decision.decision = 'fix_geometry';
+  decision.next = {
+    action: 'run_fix_p0',
+    loop_hint_max: 2,
+    fix_cmd: ['/bun', '/fix', '/artifact'],
+  };
+  decision.binding.policy_sha256 = digest('e');
+  expect(validateReceiptV1Shape(decision)).toEqual({
+    status: 'invalid',
+    issues: [
+      { code: 'POLICY_DIGEST_MISMATCH' },
+      { code: 'CORE_DIGEST_MISMATCH' },
+      { code: 'ACTION_INTERNAL_MISMATCH' },
+    ],
   });
 });
 
@@ -897,6 +959,40 @@ function policyCorpus() {
         policy.resources.schemas.sha256 = sha256Json(policy.resources.schemas.files);
       },
       false,
+    ],
+    [
+      'unsorted schema manifest',
+      (policy) => {
+        policy.resources.schemas.files.reverse();
+        policy.resources.schemas.sha256 = sha256Json(policy.resources.schemas.files);
+      },
+      false,
+    ],
+    [
+      'schema manifest aggregate mismatch',
+      (policy) => { policy.resources.schemas.sha256 = digest('f'); },
+      false,
+    ],
+    [
+      'duplicate schema path with different digests',
+      (policy) => {
+        policy.resources.schemas.files = [
+          { relative_path: 'schemas/a.schema.json', sha256: digest('1') },
+          { relative_path: 'schemas/a.schema.json', sha256: digest('2') },
+        ];
+        policy.resources.schemas.sha256 = sha256Json(policy.resources.schemas.files);
+      },
+      false,
+    ],
+    [
+      'Task 2-valid Unicode schema path',
+      (policy) => {
+        policy.resources.schemas.files = [
+          { relative_path: 'schemas/é.schema.json', sha256: digest('1') },
+        ];
+        policy.resources.schemas.sha256 = sha256Json(policy.resources.schemas.files);
+      },
+      true,
     ],
   ];
 }
