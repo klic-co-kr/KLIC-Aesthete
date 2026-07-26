@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acc0mplish/aesthete/schemas/intent.schema.json",
+  "title": "Aesthete Generation Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "goal",
+    "scope",
+    "content_priority",
+    "artifact",
+    "audience",
+    "desired_action",
+    "source",
+    "claim_scope"
+  ],
+  "properties": {
+    "schema": { "const": "aesthete.intent/v1" },
+    "schema_version": { "const": 1 },
+    "goal": { "$ref": "#/$defs/optionalText" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "excluded"],
+      "properties": {
+        "included": { "$ref": "#/$defs/textList" },
+        "excluded": { "$ref": "#/$defs/textList" }
+      }
+    },
+    "content_priority": { "$ref": "#/$defs/textList" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_type", "effective_type", "format", "canvas"],
+      "properties": {
+        "requested_type": { "$ref": "#/$defs/text" },
+        "effective_type": { "$ref": "#/$defs/text" },
+        "format": {
+          "enum": [null, "svg", "html", "pptx", "docx", "xlsx", "image"]
+        },
+        "canvas": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["w", "h"],
+              "properties": {
+                "w": { "type": "number", "minimum": 0 },
+                "h": { "type": "number", "minimum": 0 }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "audience": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "frequency"],
+      "properties": {
+        "description": { "$ref": "#/$defs/optionalText" },
+        "frequency": { "enum": [null, "daily", "weekly", "once"] }
+      }
+    },
+    "desired_action": { "$ref": "#/$defs/optionalText" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "must_preserve", "must_not_assume"],
+      "properties": {
+        "mode": {
+          "enum": ["new", "continue_improve", "fresh_start", "unspecified"]
+        },
+        "must_preserve": { "$ref": "#/$defs/textList" },
+        "must_not_assume": { "$ref": "#/$defs/textList" }
+      }
+    },
+    "claim_scope": {
+      "const": {
+        "role": "declared_generation_context_not_evaluation",
+        "does_not_establish": [
+          "intent_correctness",
+          "intent_fulfillment",
+          "scope_coverage",
+          "priority_fulfillment",
+          "audience_comprehension",
+          "human_approval"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "optionalText": {
+      "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/text" }]
+    },
+    "textList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/text" }
+    }
+  }
+}

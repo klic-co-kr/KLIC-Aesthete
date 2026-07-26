@@ -10,6 +10,43 @@
     "artifact_type": { "type": "string", "description": "dashboard | marketing | report | diagram | poster; any other value → generic fallback" },
     "format": { "enum": ["svg", "html", "pptx", "docx", "xlsx", "image"], "description": "output format; scopes format-specific negation gates (CSS-grid / token-block / web-UI tells are html-only). Omit → all gates emit." },
     "brief": { "type": "string" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "excluded"],
+      "properties": {
+        "included": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        },
+        "excluded": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        }
+      }
+    },
+    "content_priority": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+    },
+    "audience": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "desired_action": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "source_mode": {
+      "enum": ["new", "continue_improve", "fresh_start", "unspecified"]
+    },
+    "must_preserve": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+    },
+    "must_not_assume": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+    },
     "canvas": {
       "type": "object",
       "additionalProperties": false,
