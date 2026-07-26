@@ -51,6 +51,26 @@ test('strict JSON: malformed UTF-8 is rejected and __proto__ remains ordinary da
   expect({}.polluted).toBeUndefined();
 });
 
+test('strict JSON: a UTF-8 BOM is not silently removed from the grammar', () => {
+  const bomPrefixedObject = Buffer.from([0xef, 0xbb, 0xbf, 0x7b, 0x7d]);
+  expect(() => parseJsonStrict(bomPrefixedObject, 'decision'))
+    .toThrow(/expected JSON value/i);
+});
+
+test('strict JSON: malformed numbers, escapes, separators, and trailing input are rejected', () => {
+  for (const source of [
+    '01',
+    '+1',
+    '"\\x"',
+    '{"a":1,}',
+    '[1,]',
+    '{"a" 1}',
+    'true false',
+  ]) {
+    expect(() => parseJsonStrict(source, 'decision')).toThrow();
+  }
+});
+
 test('JCS: lossy or non-JSON values are rejected', () => {
   expect(() => canonicalizeJson({ value: undefined })).toThrow(/unsupported/i);
   expect(() => canonicalizeJson([, 1])).toThrow(/sparse/i);
@@ -59,6 +79,39 @@ test('JCS: lossy or non-JSON values are rejected', () => {
   const cyclic = {}; cyclic.self = cyclic;
   expect(() => canonicalizeJson(cyclic)).toThrow(/cycle/i);
   expect(canonicalizeJson(-0)).toBe('0');
+});
+
+test('JCS: hostile object descriptors cannot be omitted or evaluated twice', () => {
+  let reads = 0;
+  const accessor = {};
+  Object.defineProperty(accessor, 'value', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return reads;
+    },
+  });
+  expect(() => canonicalizeJson(accessor)).toThrow(/accessor/i);
+  expect(reads).toBe(0);
+
+  const symbolKey = { visible: true };
+  symbolKey[Symbol('hidden')] = 1n;
+  expect(() => canonicalizeJson(symbolKey)).toThrow(/symbol/i);
+
+  const nonEnumerable = { visible: true };
+  Object.defineProperty(nonEnumerable, 'hidden', { value: undefined });
+  expect(() => canonicalizeJson(nonEnumerable)).toThrow(/non-enumerable/i);
+
+  const extraArrayProperty = [1];
+  extraArrayProperty.extra = 2;
+  expect(() => canonicalizeJson(extraArrayProperty)).toThrow(/array property/i);
+  expect(() => canonicalizeJson(new Date(0))).toThrow(/non-plain/i);
+});
+
+test('JCS: repeated non-cyclic references remain valid JSON data', () => {
+  const child = { x: 1 };
+  expect(canonicalizeJson({ a: child, b: child }))
+    .toBe('{"a":{"x":1},"b":{"x":1}}');
 });
 
 test('JCS: selected RFC 8785 Appendix B numbers use ECMAScript serialization', () => {
