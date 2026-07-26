@@ -636,6 +636,33 @@ describe('verifyReceiptFiles snapshot fold', () => {
       expect(error.code).toBe('CURRENT_INPUT_INVALID');
     }
   });
+
+  test('direct verifier input and dependency shapes fail closed with stable codes', async () => {
+    const emitted = await emitDecision(goodPath, {}, 'exact-input.json');
+    const base = {
+      decisionPath: emitted.decisionPath,
+      artifactPath: goodPath,
+      flags: {},
+    };
+    const cases = [
+      [{ ...base, extra: true }, {}, 'CURRENT_INPUT_INVALID'],
+      [{ ...base, flags: false }, {}, 'POLICY_INPUT_INVALID'],
+      [{ ...base, flags: { contract: '--other-flag' } }, {}, 'CONTRACT_INPUT_INVALID'],
+      [{ ...base, flags: { structure: '--other-flag' } }, {}, 'POLICY_INPUT_INVALID'],
+      [{ ...base, flags: { type: '--other-flag' } }, {}, 'POLICY_INPUT_INVALID'],
+      [{ ...base, decisionPath: null }, {}, 'DECISION_INPUT_INVALID'],
+      [{ ...base, artifactPath: null }, {}, 'CURRENT_INPUT_INVALID'],
+      [base, { root: fixtureRoot, extra: true }, 'CURRENT_INPUT_INVALID'],
+    ];
+    for (const [input, deps, code] of cases) {
+      try {
+        await verifyReceiptFiles(input, deps);
+        throw new Error(`expected ${code}`);
+      } catch (error) {
+        expect(error.code).toBe(code);
+      }
+    }
+  });
 });
 
 describe('receipt verifier real process contract', () => {
