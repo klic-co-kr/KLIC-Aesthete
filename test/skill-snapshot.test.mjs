@@ -151,6 +151,22 @@ test('stored manifest aggregate digest must match its file entries', () => {
     .toThrow(/manifest aggregate digest/i);
 });
 
+test.each(['installation', 'schemas'])(
+  '%s stored manifest must remain strictly path-sorted',
+  (kind) => {
+    if (kind === 'schemas') {
+      fs.writeFileSync(path.join(fixtureRoot, 'schemas', 'b.schema.json'), '{}');
+    }
+    const stored = kind === 'installation'
+      ? captureInstallationManifest(fixtureRoot)
+      : captureSchemaBundle(fixtureRoot).manifest;
+    stored.files.reverse();
+    stored.sha256 = sha256Json(stored.files);
+    expect(() => compareCurrentManifest(stored, fixtureRoot, kind))
+      .toThrow(/manifest path order/i);
+  },
+);
+
 test.each([
   ['installation', 'lib', 'external-lib', captureInstallationManifest, 'INSTALLATION_INPUT_INVALID'],
   ['schemas', 'schemas', 'external-schemas', captureSchemaBundle, 'SCHEMA_INPUT_INVALID'],
