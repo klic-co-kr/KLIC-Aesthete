@@ -5,7 +5,9 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { importPath } from '../lib/adapters/index.mjs';
 import { skillRoot } from '../lib/shared/cli.mjs';
+import { makeTwoSlideDeck } from './helpers/pptx-fixture.mjs';
 
 const root = skillRoot();
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-cli-'));
@@ -56,6 +58,30 @@ test('CLI: fix --neural yields enum outcome best-effort + neural stoppedReason',
     expect(['pass', 'best-effort', 'no-improvement', 'budget-exhausted']).toContain(log.outcome);
     expect(log.outcome).toBe('best-effort');
     expect(log.stoppedReason).toContain('neural-criteria-failed');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI: fix --slide imports the selected PPTX source slide', () => {
+  const dir = tmpDir();
+  try {
+    const deckPath = path.join(dir, 'two-slides.pptx');
+    const fixedPath = path.join(dir, 'fixed.pptx');
+    fs.writeFileSync(deckPath, makeTwoSlideDeck());
+    run('fix.mjs', [
+      deckPath,
+      '--contract', path.join(root, 'examples', 'catalog.contract.json'),
+      '--domain', 'pptx',
+      '--slide', '2',
+      '--profile', 'strict',
+      '--out', fixedPath,
+    ], dir);
+    const fixed = importPath(fixedPath, { domain: 'pptx', slide: 1 });
+    const labels = fixed.nodes.map((node) => node.label);
+    expect(labels).toContain('SLIDE_TWO_A');
+    expect(labels).toContain('SLIDE_TWO_B');
+    expect(labels).not.toContain('SLIDE_ONE_ONLY');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
