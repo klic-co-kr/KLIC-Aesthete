@@ -20,6 +20,7 @@ import { parseFixAction } from '../lib/skill-action.mjs';
 import {
   buildClaimScope,
   decisionCore,
+  validateReceiptV1Shape,
 } from '../lib/skill-receipt-core.mjs';
 import { DEFAULT_PARAMS } from '../lib/skill-params.mjs';
 
@@ -387,6 +388,52 @@ describe('single-snapshot resource consumption', () => {
     ).sha256).toBe(sha256Bytes(firstBytes));
   });
 
+  test('relative artifact locator is frozen before injected I/O can change cwd', async () => {
+    const originalCwd = process.cwd();
+    const relativeArtifact = path.relative(originalCwd, fixtureGood);
+    const changedCwd = path.join(
+      tempDir,
+      'deep',
+      'one',
+      'two',
+      'three',
+      'four',
+      'five',
+      'six',
+    );
+    fs.mkdirSync(changedCwd, { recursive: true });
+    let changed = false;
+    const reader = mutatingReader((filePath) => {
+      if (!changed && filePath.includes(`${path.sep}schemas${path.sep}`)) {
+        changed = true;
+        process.chdir(changedCwd);
+      }
+    });
+    let result;
+    try {
+      result = await runPost(relativeArtifact, {
+        flags: {},
+        deps: { root: fixtureRoot, io: reader },
+      });
+    } finally {
+      process.chdir(originalCwd);
+    }
+    expect(changed).toBe(true);
+    expect(result.decision.decision).toBe('pass');
+    expect(result.decision.binding.artifact.sha256)
+      .toBe(sha256Bytes(fs.readFileSync(fixtureGood)));
+  });
+
+  test('invalid explicit domains win before malformed dependency capture', async () => {
+    fs.writeFileSync(path.join(fixtureRoot, 'schemas', 'alt.schema.json'), '{');
+    for (const domain of ['', 'unsupported-domain']) {
+      await expectReceiptInputError(runPost(fixtureGood, {
+        flags: { domain },
+        deps: { root: fixtureRoot },
+      }), 'DOMAIN_INVALID');
+    }
+  });
+
   test('pass does not read a missing default action contract', async () => {
     const contractPath = path.join(fixtureRoot, 'examples', 'catalog.contract.json');
     fs.unlinkSync(contractPath);
@@ -546,6 +593,45 @@ describe('receipt-backed post and gate process failures', () => {
       ]) {
         expect(fs.existsSync(path.join(outDir, name))).toBe(false);
       }
+    }
+  });
+
+  test('successful post and gate persist validated receipts and slop output', () => {
+    fs.symlinkSync(
+      path.join(root, 'node_modules'),
+      path.join(fixtureRoot, 'node_modules'),
+      'dir',
+    );
+    const artifact = path.join(
+      fixtureRoot,
+      'examples',
+      'catalog-good.layout.json',
+    );
+    for (const entry of ['skill-post.mjs', 'skill-gate.mjs']) {
+      const outDir = path.join(tempDir, `success-${entry}`);
+      const result = spawnSync(process.execPath, [
+        '--no-install',
+        path.join(fixtureRoot, 'lib', entry),
+        artifact,
+        '--slop',
+        '--out-dir',
+        outDir,
+      ], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('decision=pass');
+      const decision = JSON.parse(
+        fs.readFileSync(path.join(outDir, 'decision.json'), 'utf8'),
+      );
+      expect(validateReceiptV1Shape(decision)).toEqual({
+        status: 'bound',
+        issues: [],
+      });
+      expect(fs.existsSync(path.join(outDir, 'report.json'))).toBe(true);
+      expect(fs.existsSync(path.join(outDir, 'slop.json'))).toBe(true);
     }
   });
 });
