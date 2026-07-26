@@ -744,6 +744,53 @@ test.each([
   });
 });
 
+test.each([
+  ['adapter and effective slide', (policy) => {
+    policy.adapter = { id: 'pptx', effective_slide: 2 };
+  }],
+  ['profile', (policy) => { policy.profile = 'review'; }],
+  ['structure', (policy) => { policy.structure = 'evidence-grid'; }],
+  ['lint and tokens', (policy) => {
+    policy.lint = true;
+    policy.resources.tokens_sha256 = digest('d');
+  }],
+  ['vulnerability flags', (policy) => {
+    policy.vuln = true;
+    policy.vuln_gate = true;
+  }],
+  ['slop flags', (policy) => {
+    policy.slop = true;
+    policy.slop_gate = true;
+    policy.slop_autofix = true;
+  }],
+  ['human fallback', (policy) => { policy.human_on_unfixable = true; }],
+  ['artifact type', (policy) => { policy.artifact_type = 'dashboard'; }],
+  ['parameter digest', (policy) => { policy.resources.params_sha256 = digest('d'); }],
+  ['schema manifest', (policy) => {
+    policy.resources.schemas.files[0].sha256 = digest('d');
+    policy.resources.schemas.sha256 = sha256Json(policy.resources.schemas.files);
+  }],
+  ['installation manifest', (policy) => {
+    policy.resources.on_disk_installation.files[0].sha256 = digest('d');
+    policy.resources.on_disk_installation.sha256 = sha256Json(
+      policy.resources.on_disk_installation.files,
+    );
+  }],
+  ['validator identity', (policy) => { policy.validation.version = '8.18.0'; }],
+  ['runtime identity', (policy) => {
+    policy.runtime.version = '1.3.7';
+    policy.runtime.versions_sha256 = digest('d');
+  }],
+])('every policy component participates in freshness: %s', (_name, mutate) => {
+  const changed = structuredClone(current);
+  mutate(changed.policy);
+  expect(verifyDecisionBinding(receiptDecision(), changed)).toEqual({
+    status: 'stale',
+    issues: [{ code: 'POLICY_CHANGED' }],
+    checked: ALL_CHECKED,
+  });
+});
+
 test('a changed bound action is stale for a fix decision', () => {
   const decision = receiptDecision({
     decision: 'fix_geometry',
@@ -759,6 +806,47 @@ test('a changed bound action is stale for a fix decision', () => {
   expect(verifyDecisionBinding(decision, changed)).toEqual({
     status: 'stale',
     issues: [{ code: 'ACTION_CHANGED' }],
+    checked: ALL_CHECKED,
+  });
+});
+
+test('simultaneous complete mismatches return every issue in stable class order', () => {
+  const decision = receiptDecision({
+    decision: 'fix_geometry',
+    next: {
+      action: 'run_fix_p0',
+      loop_hint_max: 2,
+      fix_cmd: ['/bun', '/fix', '/artifact'],
+    },
+  }, {
+    contract: { status: 'bound', sha256: digest('5') },
+    action_inputs: boundAction,
+  });
+  const changed = structuredClone(current);
+  changed.artifact_sha256 = digest('f');
+  changed.contract = { status: 'bound', sha256: digest('6') };
+  changed.action_inputs = structuredClone(boundAction);
+  changed.action_inputs.script_locator_sha256 = digest('f');
+  changed.policy.profile = 'changed';
+  changed.schemaComparison = {
+    matches: false,
+    changes: [
+      { code: 'MANIFEST_FILE_CHANGED', relative_path: 'schemas/a.schema.json' },
+    ],
+  };
+  expect(verifyDecisionBinding(decision, changed)).toEqual({
+    status: 'stale',
+    issues: [
+      { code: 'ARTIFACT_CHANGED' },
+      { code: 'CONTRACT_CHANGED' },
+      { code: 'ACTION_CHANGED' },
+      { code: 'POLICY_CHANGED' },
+      {
+        code: 'MANIFEST_FILE_CHANGED',
+        manifest_kind: 'schemas',
+        relative_path: 'schemas/a.schema.json',
+      },
+    ],
     checked: ALL_CHECKED,
   });
 });
