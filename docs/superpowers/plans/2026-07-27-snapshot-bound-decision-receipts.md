@@ -2199,11 +2199,15 @@ never reads current files. Refactor `verifyFixAction()` to reuse the same
 private inspection, not duplicate it.
 
 The strict parser throws `ReceiptUsageError` with stable code
-`RECEIPT_USAGE_INVALID`. It accepts exactly command `verify`, exactly two
-positionals, unique allowlisted flags, and no `--` separator or
-`--flag=value` shorthand. Every value flag requires one non-empty following
-token that does not begin with `--`. Slide uses the canonical safe positive
-base-10 spelling `/^[1-9][0-9]*$/`; domain must be in the adapter registry.
+`RECEIPT_USAGE_INVALID` for command/positional/flag grammar failures. It
+accepts exactly command `verify`, exactly two positionals, unique allowlisted
+flags, and no `--` separator or `--flag=value` shorthand. Every value flag
+requires one non-empty following token that does not begin with `--`. Slide
+uses the canonical safe positive base-10 spelling `/^[1-9][0-9]*$/`; a
+noncanonical/unsafe slide throws `ReceiptInputError/SLIDE_INVALID`.
+Unsupported domain throws `ReceiptInputError/DOMAIN_INVALID`. This preserves
+the Task 5 stable semantic codes at the verifier CLI while reserving
+`RECEIPT_USAGE_INVALID` for grammar.
 The returned `flags` object preserves the hyphenated public names, converts
 slide to a number, excludes `out`, and uses insertion order from argv.
 `outPath` is the value of `--out` or `null`.
