@@ -1,17 +1,71 @@
-import { test, expect } from 'bun:test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from 'bun:test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { foldDecision, stableDecision, decisionExitCode, isPhysicallyInfeasible, p0Fixable } from '../lib/skill-decision.mjs';
 import { buildPreBundle, renderPromptBullets, runPre, resolveOutDir, negationBundle } from '../lib/skill-pre.mjs';
 import { runPost } from '../lib/skill-post.mjs';
 import { measureAlt } from '../lib/measure.mjs';
 import { readJson } from '../lib/shared/cli.mjs';
 import { skillRoot } from '../lib/shared/cli.mjs';
+import { sha256Bytes, sha256Json } from '../lib/shared/canonical-json.mjs';
+import { parseFixAction } from '../lib/skill-action.mjs';
+import {
+  buildClaimScope,
+  decisionCore,
+} from '../lib/skill-receipt-core.mjs';
+import { DEFAULT_PARAMS } from '../lib/skill-params.mjs';
 
 const root = skillRoot();
 const badPath = path.join(root, 'examples', 'catalog-bad.layout.json');
 const goodPath = path.join(root, 'examples', 'catalog-good.layout.json');
 const dashBriefPath = path.join(root, 'examples', 'dashboard-brief.json');
+
+function copyReceiptFixtureRoot(target) {
+  for (const directory of ['lib', 'schemas', 'examples']) {
+    fs.cpSync(path.join(root, directory), path.join(target, directory), {
+      recursive: true,
+    });
+  }
+  for (const file of ['package.json', 'bun.lock', 'package-lock.json']) {
+    fs.copyFileSync(path.join(root, file), path.join(target, file));
+  }
+}
+
+function mutatingReader(onRead = () => {}) {
+  const counts = new Map();
+  return {
+    counts,
+    readFile(filePath) {
+      const absolute = path.resolve(filePath);
+      const bytes = fs.readFileSync(absolute);
+      const count = (counts.get(absolute) || 0) + 1;
+      counts.set(absolute, count);
+      onRead(absolute, count);
+      return bytes;
+    },
+    count(filePath) {
+      return counts.get(path.resolve(filePath)) || 0;
+    },
+  };
+}
+
+async function expectReceiptInputError(promise, code) {
+  try {
+    await promise;
+    throw new Error(`expected ${code}`);
+  } catch (error) {
+    expect(error.name).toBe('ReceiptInputError');
+    expect(error.code).toBe(code);
+  }
+}
 
 test('resolveOutDir: relative jail + absolute opt-in', () => {
   expect(() => resolveOutDir('../escape-aesthete', root)).toThrow(/escapes cwd/);
@@ -63,6 +117,437 @@ test('post: decision deterministic (stable strip)', async () => {
   const a = stableDecision((await runPost(badPath, { flags: {} })).decision);
   const b = stableDecision((await runPost(badPath, { flags: {} })).decision);
   expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+});
+
+describe('snapshot-bound post emission', () => {
+  let tempDir;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-receipt-post-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('good artifact emits a complete receipt and narrow pass claim', async () => {
+    const { decision } = await runPost(goodPath, { flags: {} });
+    expect(decision.decision).toBe('pass');
+    expect(decision.claim_scope.pass_means)
+      .toBe('no_enabled_blocking_rule_triggered');
+    expect(decision.binding.schema).toBe('aesthete.binding/v1');
+    expect(decision.binding.completeness).toBe('complete');
+    expect(decision.binding.artifact.sha256)
+      .toBe(sha256Bytes(fs.readFileSync(goodPath)));
+    expect(decision.binding.decision_core_sha256)
+      .toBe(sha256Json(decisionCore(decision)));
+  });
+
+  test('bad geometry keeps fix_geometry and emits a bound absolute action', async () => {
+    const { decision } = await runPost(badPath, { flags: {} });
+    expect(decision.decision).toBe('fix_geometry');
+    expect(decision.binding.action_inputs.status).toBe('bound');
+    expect(parseFixAction(decision.next.fix_cmd)).toEqual({
+      executable: path.resolve(process.execPath),
+      scriptPath: path.join(root, 'lib', 'fix.mjs'),
+      artifactPath: path.resolve(badPath),
+      contractPath: path.join(root, 'examples', 'catalog.contract.json'),
+      adapter: 'alt',
+      slide: null,
+      profile: null,
+    });
+  });
+
+  test('structure unknown and P0-only contract failure retain pass semantics', async () => {
+    const unknown = await runPost(goodPath, {
+      flags: { structure: 'does-not-exist' },
+    });
+    expect(unknown.decision.decision).toBe('pass');
+    expect(unknown.decision.claim_scope.rules.structure_signature.coverage_behavior)
+      .toBe('unknown_is_nonblocking');
+
+    const contractPath = path.join(tempDir, 'p0-only.contract.json');
+    fs.writeFileSync(contractPath, JSON.stringify({
+      schema_version: 1,
+      brief: 'P0-only fold fixture',
+      criteria: [{
+        skill: 'collision',
+        metric: 'count',
+        op: '==',
+        threshold: 1,
+        weight: 1,
+      }],
+    }));
+    const p0Only = await runPost(goodPath, {
+      flags: { contract: contractPath },
+    });
+    expect(p0Only.decision.decision).toBe('pass');
+    expect(p0Only.decision.claim_scope.rules.contract_criteria.coverage_behavior)
+      .toBe('p0_only_contract_failure_is_nonblocking_in_contract_branch');
+  });
+
+  test('unreadable versus readable-invalid artifact receipts differ in completeness', async () => {
+    const unreadable = await runPost(
+      path.join(tempDir, 'missing.layout.json'),
+      { flags: {} },
+    );
+    expect(unreadable.decision.decision).toBe('regenerate');
+    expect(unreadable.decision.binding).toMatchObject({
+      completeness: 'incomplete',
+      artifact: { status: 'unreadable', sha256: null },
+    });
+
+    const invalidPath = path.join(tempDir, 'readable-invalid.layout.json');
+    fs.writeFileSync(invalidPath, '{"schema_version":1,"nodes":[]}');
+    const invalid = await runPost(invalidPath, { flags: {} });
+    expect(invalid.decision.decision).toBe('regenerate');
+    expect(invalid.decision.binding).toMatchObject({
+      completeness: 'complete',
+      artifact: {
+        status: 'bound',
+        sha256: sha256Bytes(fs.readFileSync(invalidPath)),
+      },
+    });
+
+    const duplicatePath = path.join(tempDir, 'duplicate-key.layout.json');
+    fs.writeFileSync(
+      duplicatePath,
+      '{"schema_version":1,"diagram_type":"layout","meta":{"title":"first","canvas":{"w":100,"h":100}},"meta":{"title":"second","canvas":{"w":100,"h":100}},"nodes":[]}',
+    );
+    const duplicate = await runPost(duplicatePath, { flags: {} });
+    expect(duplicate.decision.decision).toBe('regenerate');
+    expect(duplicate.decision.binding).toMatchObject({
+      completeness: 'complete',
+      artifact: {
+        status: 'bound',
+        sha256: sha256Bytes(fs.readFileSync(duplicatePath)),
+      },
+    });
+  });
+});
+
+describe('single-snapshot resource consumption', () => {
+  let tempDir;
+  let fixtureRoot;
+  let fixtureGood;
+  let fixtureBad;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-receipt-post-'));
+    fixtureRoot = path.join(tempDir, 'skill');
+    fs.mkdirSync(fixtureRoot);
+    copyReceiptFixtureRoot(fixtureRoot);
+    fixtureGood = path.join(fixtureRoot, 'examples', 'catalog-good.layout.json');
+    fixtureBad = path.join(fixtureRoot, 'examples', 'catalog-bad.layout.json');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('measurement, lint, and policy digest the same first params and tokens', async () => {
+    const paramsPath = path.join(fixtureRoot, 'skill-params.json');
+    const tokensPath = path.join(fixtureRoot, 'tokens.json');
+    const firstParams = {
+      proximity: { ...DEFAULT_PARAMS.proximity, ALPHA: 0 },
+    };
+    const firstTokens = {
+      colors: ['#111827', '#ffffff'],
+      fontScale: [24],
+      radii: [0],
+    };
+    fs.writeFileSync(paramsPath, JSON.stringify({ proximity: { ALPHA: 0 } }));
+    fs.writeFileSync(tokensPath, JSON.stringify(firstTokens));
+    const reader = mutatingReader((filePath, count) => {
+      if (filePath === paramsPath && count === 1) {
+        fs.writeFileSync(paramsPath, JSON.stringify({ proximity: { ALPHA: 100 } }));
+      }
+      if (filePath === tokensPath && count === 1) {
+        fs.writeFileSync(tokensPath, JSON.stringify({
+          colors: ['#000000'],
+          fontScale: [12],
+          radii: [16],
+        }));
+      }
+    });
+
+    const result = await runPost(fixtureGood, {
+      flags: { lint: true },
+      deps: { root: fixtureRoot, io: reader },
+    });
+
+    expect(result.report.skills.proximity.metrics.meanGroupP).toBe(1);
+    expect(result.lintResult.passed).toBe(true);
+    expect(result.decision.binding.policy.resources.params_sha256)
+      .toBe(sha256Json(firstParams));
+    expect(result.decision.binding.policy.resources.tokens_sha256)
+      .toBe(sha256Json(firstTokens));
+    expect(reader.count(paramsPath)).toBe(1);
+    expect(reader.count(tokensPath)).toBe(1);
+  });
+
+  test('lint-disabled policy neither reads nor hashes tokens', async () => {
+    const tokensPath = path.join(fixtureRoot, 'tokens.json');
+    fs.writeFileSync(tokensPath, JSON.stringify({
+      colors: ['#000000'],
+      fontScale: [12],
+      radii: [16],
+    }));
+    const reader = mutatingReader();
+    const result = await runPost(fixtureGood, {
+      flags: {},
+      deps: { root: fixtureRoot, io: reader },
+    });
+    expect(reader.count(tokensPath)).toBe(0);
+    expect(result.decision.binding.policy.resources.tokens_sha256).toBeNull();
+  });
+
+  test('unreadable artifact still binds selected params and lint-enabled tokens', async () => {
+    const paramsPath = path.join(fixtureRoot, 'skill-params.json');
+    const tokensPath = path.join(fixtureRoot, 'tokens.json');
+    fs.writeFileSync(paramsPath, JSON.stringify({ proximity: { ALPHA: 0.25 } }));
+    fs.writeFileSync(tokensPath, JSON.stringify({
+      colors: ['#000000'],
+      fontScale: [12],
+      radii: [0],
+    }));
+    const reader = mutatingReader();
+    const result = await runPost(path.join(tempDir, 'missing.alt.json'), {
+      flags: { lint: true },
+      deps: { root: fixtureRoot, io: reader },
+    });
+    expect(result.decision.binding.completeness).toBe('incomplete');
+    expect(result.decision.binding.policy.resources.params_sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.decision.binding.policy.resources.tokens_sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(reader.count(paramsPath)).toBe(1);
+    expect(reader.count(tokensPath)).toBe(1);
+  });
+
+  test('requested contract is one snapshot shared by evaluation and fix action', async () => {
+    const contractPath = path.join(fixtureRoot, 'examples', 'catalog.contract.json');
+    const firstBytes = fs.readFileSync(contractPath);
+    const reader = mutatingReader((filePath, count) => {
+      if (filePath === contractPath && count === 1) {
+        fs.writeFileSync(contractPath, '{"changed":true}');
+      }
+    });
+    const result = await runPost(fixtureBad, {
+      flags: { contract: contractPath },
+      deps: { root: fixtureRoot, io: reader },
+    });
+    expect(result.decision.decision).toBe('fix_geometry');
+    expect(reader.count(contractPath)).toBe(1);
+    expect(result.decision.binding.contract.sha256).toBe(sha256Bytes(firstBytes));
+    expect(result.decision.binding.action_inputs.contract_sha256)
+      .toBe(sha256Bytes(firstBytes));
+    expect(parseFixAction(result.decision.next.fix_cmd).contractPath)
+      .toBe(contractPath);
+  });
+
+  test('default fix contract and action artifact are each read exactly once', async () => {
+    const contractPath = path.join(fixtureRoot, 'examples', 'catalog.contract.json');
+    const contractBytes = fs.readFileSync(contractPath);
+    const artifactBytes = fs.readFileSync(fixtureBad);
+    const reader = mutatingReader((filePath, count) => {
+      if (filePath === contractPath && count === 1) {
+        fs.writeFileSync(contractPath, '{"changed":true}');
+      }
+      if (filePath === fixtureBad && count === 1) {
+        fs.writeFileSync(fixtureBad, '{"changed":true}');
+      }
+    });
+    const result = await runPost(fixtureBad, {
+      flags: {},
+      deps: { root: fixtureRoot, io: reader },
+    });
+    expect(result.decision.decision).toBe('fix_geometry');
+    expect(reader.count(contractPath)).toBe(1);
+    expect(reader.count(fixtureBad)).toBe(1);
+    expect(result.decision.binding.artifact.sha256).toBe(sha256Bytes(artifactBytes));
+    expect(result.decision.binding.action_inputs.contract_sha256)
+      .toBe(sha256Bytes(contractBytes));
+  });
+
+  test('schema validation and policy manifest consume the same first schema bytes', async () => {
+    const schemaPath = path.join(fixtureRoot, 'schemas', 'alt.schema.json');
+    const firstBytes = fs.readFileSync(schemaPath);
+    const reader = mutatingReader((filePath, count) => {
+      if (filePath === schemaPath && count === 1) {
+        fs.writeFileSync(schemaPath, '{');
+      }
+    });
+    const result = await runPost(fixtureGood, {
+      flags: {},
+      deps: { root: fixtureRoot, io: reader },
+    });
+    expect(result.decision.decision).toBe('pass');
+    expect(reader.count(schemaPath)).toBe(1);
+    expect(result.decision.binding.policy.resources.schemas.files.find(
+      (entry) => entry.relative_path === 'schemas/alt.schema.json',
+    ).sha256).toBe(sha256Bytes(firstBytes));
+  });
+
+  test('pass does not read a missing default action contract', async () => {
+    const contractPath = path.join(fixtureRoot, 'examples', 'catalog.contract.json');
+    fs.unlinkSync(contractPath);
+    const reader = mutatingReader();
+    const result = await runPost(fixtureGood, {
+      flags: {},
+      deps: { root: fixtureRoot, io: reader },
+    });
+    expect(result.decision.decision).toBe('pass');
+    expect(reader.count(contractPath)).toBe(0);
+  });
+
+  test('default action contract failure has its own stable boundary code', async () => {
+    fs.unlinkSync(path.join(fixtureRoot, 'examples', 'catalog.contract.json'));
+    await expectReceiptInputError(runPost(fixtureBad, {
+      flags: {},
+      deps: { root: fixtureRoot },
+    }), 'ACTION_CONTRACT_INVALID');
+  });
+
+  test('requested and default contract schema failures keep distinct codes', async () => {
+    const requestedPath = path.join(tempDir, 'invalid-requested.contract.json');
+    fs.writeFileSync(requestedPath, JSON.stringify({
+      schema_version: 1,
+      brief: '',
+      criteria: [],
+    }));
+    await expectReceiptInputError(runPost(fixtureGood, {
+      flags: { contract: requestedPath },
+      deps: { root: fixtureRoot },
+    }), 'CONTRACT_INPUT_INVALID');
+
+    fs.writeFileSync(
+      path.join(fixtureRoot, 'examples', 'catalog.contract.json'),
+      fs.readFileSync(requestedPath),
+    );
+    await expectReceiptInputError(runPost(fixtureBad, {
+      flags: {},
+      deps: { root: fixtureRoot },
+    }), 'ACTION_CONTRACT_INVALID');
+  });
+
+  test('slide and profile flags are normalized at the receipt boundary', async () => {
+    const deckPath = path.join(tempDir, 'invalid-but-readable.pptx');
+    fs.writeFileSync(deckPath, 'not-a-zip');
+    const result = await runPost(deckPath, {
+      flags: { slide: '2' },
+      deps: { root: fixtureRoot },
+    });
+    expect(result.decision.binding.policy.adapter).toEqual({
+      id: 'pptx',
+      effective_slide: 2,
+    });
+    await expectReceiptInputError(runPost(deckPath, {
+      flags: { slide: '02' },
+      deps: { root: fixtureRoot },
+    }), 'SLIDE_INVALID');
+    await expectReceiptInputError(runPost(fixtureGood, {
+      flags: { profile: '--strict' },
+      deps: { root: fixtureRoot },
+    }), 'POLICY_INPUT_INVALID');
+  });
+});
+
+describe('receipt-backed post and gate process failures', () => {
+  let tempDir;
+  let fixtureRoot;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-receipt-post-'));
+    fixtureRoot = path.join(tempDir, 'skill');
+    fs.mkdirSync(fixtureRoot);
+    copyReceiptFixtureRoot(fixtureRoot);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const cases = [
+    'DOMAIN_INVALID',
+    'SLIDE_INVALID',
+    'CONTRACT_INPUT_INVALID',
+    'ACTION_CONTRACT_INVALID',
+    'SCHEMA_INPUT_INVALID',
+    'INSTALLATION_INPUT_INVALID',
+    'AJV_REQUIRED',
+    'BUN_REQUIRED',
+  ];
+
+  test.each(cases)('%s exits 2 without stdout or result files', (code) => {
+    const good = path.join(fixtureRoot, 'examples', 'catalog-good.layout.json');
+    const bad = path.join(fixtureRoot, 'examples', 'catalog-bad.layout.json');
+    let artifact = good;
+    let args = [];
+    let executable = process.execPath;
+
+    if (code !== 'AJV_REQUIRED' && code !== 'BUN_REQUIRED') {
+      fs.symlinkSync(
+        path.join(root, 'node_modules'),
+        path.join(fixtureRoot, 'node_modules'),
+        'dir',
+      );
+    }
+
+    if (code === 'DOMAIN_INVALID') {
+      args = ['--domain', 'unsupported-domain'];
+    } else if (code === 'SLIDE_INVALID') {
+      artifact = path.join(tempDir, 'deck.pptx');
+      fs.writeFileSync(artifact, 'not-a-zip');
+      args = ['--slide', '0'];
+    } else if (code === 'CONTRACT_INPUT_INVALID') {
+      const contractPath = path.join(tempDir, 'duplicate.contract.json');
+      fs.writeFileSync(
+        contractPath,
+        '{"schema_version":1,"brief":"a","brief":"b","criteria":[{"skill":"collision","metric":"count","op":"==","threshold":0,"weight":1}]}',
+      );
+      args = ['--contract', contractPath];
+    } else if (code === 'ACTION_CONTRACT_INVALID') {
+      artifact = bad;
+      fs.unlinkSync(path.join(fixtureRoot, 'examples', 'catalog.contract.json'));
+    } else if (code === 'SCHEMA_INPUT_INVALID') {
+      fs.writeFileSync(path.join(fixtureRoot, 'schemas', 'alt.schema.json'), '{');
+    } else if (code === 'INSTALLATION_INPUT_INVALID') {
+      fs.unlinkSync(path.join(fixtureRoot, 'bun.lock'));
+    } else if (code === 'BUN_REQUIRED') {
+      executable = 'node';
+    }
+
+    for (const entry of ['skill-post.mjs', 'skill-gate.mjs']) {
+      const outDir = path.join(tempDir, `${code}-${entry}`);
+      const result = spawnSync(executable, [
+        ...(executable === 'node' ? [] : ['--no-install']),
+        path.join(fixtureRoot, 'lib', entry),
+        artifact,
+        ...args,
+        '--out-dir',
+        outDir,
+      ], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(2);
+      expect(result.stdout).toBe('');
+      expect(result.stderr.trim().startsWith(`${code}:`)).toBe(true);
+      if (fs.existsSync(outDir)) {
+        expect(fs.readdirSync(outDir)).toEqual([]);
+      }
+      for (const name of [
+        'decision.json',
+        'report.json',
+        'slop.json',
+        'contract-eval.json',
+        'structure.json',
+        'vuln.json',
+      ]) {
+        expect(fs.existsSync(path.join(outDir, name))).toBe(false);
+      }
+    }
+  });
 });
 
 test('gate exit codes', () => {

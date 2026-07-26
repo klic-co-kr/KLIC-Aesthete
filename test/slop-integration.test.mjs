@@ -1,5 +1,12 @@
-import { test, expect } from 'bun:test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from 'bun:test';
 import { foldDecision } from '../lib/skill-decision.mjs';
+import { buildClaimScope } from '../lib/skill-receipt-core.mjs';
 
 const slopP0 = { summary: { coverage: { html: 'measured' } }, findings: [
   { id: 'slop.palette.gradient', tier: 'P0', severity: 'high', title: 'cliché gradient', signal: 2, threshold: 2 },
@@ -42,8 +49,65 @@ test('decision: slop priority 60 ties stably with vuln (config order, not random
   expect(a.reasons).toEqual(b.reasons);
 });
 
+test('mixed slop fold is exclusive and claim scope records branch order', () => {
+  const foldInput = {
+    report: {
+      summary: {
+        hardIntegrityScore: 1,
+        measuredAestheticScore: 1,
+        coverageScore: 1,
+      },
+    },
+    slopRequested: true,
+    slopGate: true,
+    slopReport: {
+      summary: {
+        coverage: { html: 'measured' },
+        unmeasured: [{
+          id: 'slop.palette.indirect',
+          tier: 'P0',
+          reason: 'var() indirect',
+        }],
+      },
+      findings: [
+        {
+          id: 'slop.palette.gradient',
+          tier: 'P0',
+          severity: 'high',
+          title: 'gradient',
+        },
+        {
+          id: 'slop.palette.glass',
+          tier: 'P1',
+          severity: 'medium',
+          title: 'glass',
+        },
+        {
+          id: 'slop.copy.lexicon',
+          tier: 'P2',
+          severity: 'low',
+          title: 'copy',
+        },
+      ],
+    },
+  };
+  const decision = foldDecision(foldInput);
+  const scope = buildClaimScope(foldInput);
+  expect(decision.decision).toBe('regenerate');
+  expect(decision.reasons.some((reason) => reason.code.startsWith('SLOP_P0_')))
+    .toBe(true);
+  expect(decision.reasons.some((reason) => reason.code.startsWith('SLOP_ADVISORY_')))
+    .toBe(false);
+  expect(scope.rules.html_pattern_scan.blocking_conditions).toEqual([
+    'branch_1_when_html_measured_and_p0_exists_regenerate',
+    'branch_2_else_when_html_measured_and_gate_enabled_and_p1_exists_regenerate',
+    'branch_3_else_when_html_measured_and_p0_signature_unmeasured_human',
+  ]);
+});
+
 import { runPost } from '../lib/skill-post.mjs';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const tmp = (name) => {
@@ -77,4 +141,45 @@ test('skill-post: alt-only input (svg/pptx v1) → slop unmeasurable, no crash',
   fs.writeFileSync(altPath, JSON.stringify({ schema_version: 1, diagram_type: 'layout', meta: { title: 'clean', canvas: { w: 1000, h: 600 }, source: 'abstract' }, nodes: [] }));
   const r = await runPost(altPath, { flags: { slop: true }, outDir: tmp('out-alt') });
   expect(r.slopReport.summary.coverage.html).toBe('unmeasurable');
+});
+
+describe('skill-post single artifact snapshot', () => {
+  let tempDir;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-receipt-post-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('HTML import and slop scan consume the same first artifact buffer', async () => {
+    const htmlPath = path.join(tempDir, 'mutating.html');
+    fs.writeFileSync(
+      htmlPath,
+      '<html><head><style>.h{background:linear-gradient(135deg,#6366f1,#ec4899)}</style></head><body><h1 data-x="10" data-y="10" data-w="200" data-h="40">first</h1></body></html>',
+    );
+    const reads = new Map();
+    const readFile = (filePath) => {
+      const absolute = path.resolve(filePath);
+      const bytes = fs.readFileSync(absolute);
+      reads.set(absolute, (reads.get(absolute) || 0) + 1);
+      if (absolute === htmlPath && reads.get(absolute) === 1) {
+        fs.writeFileSync(htmlPath, '<html><h1>changed after snapshot</h1></html>');
+      }
+      return bytes;
+    };
+
+    const result = await runPost(htmlPath, {
+      flags: { slop: true },
+      deps: { io: { readFile } },
+    });
+
+    expect(reads.get(htmlPath)).toBe(1);
+    expect(result.slopReport.findings.some(
+      (finding) => finding.id === 'slop.palette.gradient',
+    )).toBe(true);
+    expect(result.alt.nodes.some((node) => node.label === 'first')).toBe(true);
+  });
 });

@@ -380,6 +380,7 @@ test.each([
   ['zero PPTX slide', { adapter: 'pptx', slide: 0 }, 'SLIDE_INVALID'],
   ['fractional PPTX slide', { adapter: 'pptx', slide: 1.5 }, 'SLIDE_INVALID'],
   ['non-string profile', { profile: false }, 'POLICY_INPUT_INVALID'],
+  ['flag-shaped profile', { profile: '--strict' }, 'POLICY_INPUT_INVALID'],
   ['non-string artifact type', { type: 1 }, 'POLICY_INPUT_INVALID'],
 ])('policy normalization rejects %s', (_name, change, code) => {
   expectReceiptError(
