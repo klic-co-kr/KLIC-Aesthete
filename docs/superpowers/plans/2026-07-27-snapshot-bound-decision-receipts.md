@@ -35,6 +35,8 @@ Stable input/dependency codes used in RED tests and CLI mapping:
 | `AJV_REQUIRED` | mandatory validator unavailable |
 | `BUN_REQUIRED` | receipt-backed runtime is not Bun |
 | `POLICY_INPUT_INVALID` | malformed profile/structure/artifact-type policy input |
+| `RECEIPT_USAGE_INVALID` | strict receipt CLI grammar or argument failure |
+| `DECISION_INPUT_INVALID` | decision file read or strict JSON parse failure |
 | `CURRENT_INPUT_INVALID` | malformed current verifier snapshot/comparison input |
 | `ACTION_GRAMMAR_INVALID` | malformed stored or directly parsed fix action command |
 
@@ -2182,9 +2184,141 @@ git commit -m "feat: emit snapshot-bound decisions"
 
 ### Task 6: Strict Receipt Verifier CLI
 
+#### Task 6 adversarial-plan amendment
+
+This subsection is normative.
+
+Add `inspectStoredFixAction(decision)` to `lib/skill-action.mjs`. It performs
+only the stored decision/action checks currently at the front of
+`verifyFixAction()`: exact `fix_geometry/run_fix_p0` shape, exact bound action
+fields, strict command parsing, and comparison of every command-derived field
+to `binding.action_inputs`. It returns exactly
+`{ status: 'valid', issues: [] }` or
+`{ status: 'invalid', issues: [{ code: 'ACTION_INTERNAL_MISMATCH' }] }` and
+never reads current files. Refactor `verifyFixAction()` to reuse the same
+private inspection, not duplicate it.
+
+The strict parser throws `ReceiptUsageError` with stable code
+`RECEIPT_USAGE_INVALID`. It accepts exactly command `verify`, exactly two
+positionals, unique allowlisted flags, and no `--` separator or
+`--flag=value` shorthand. Every value flag requires one non-empty following
+token that does not begin with `--`. Slide uses the canonical safe positive
+base-10 spelling `/^[1-9][0-9]*$/`; domain must be in the adapter registry.
+The returned `flags` object preserves the hyphenated public names, converts
+slide to a number, excludes `out`, and uses insertion order from argv.
+`outPath` is the value of `--out` or `null`.
+
+`verifyReceiptFiles(input, deps)` accepts exactly:
+
+```js
+input = {
+  decisionPath,
+  artifactPath,
+  flags, // normalized parser-style object; default {}
+}
+deps = {
+  io,
+  root,
+  runtime,
+  loadAjv,
+}
+```
+
+Normalize decision, artifact, requested-contract, root, runtime executable,
+and output locators at entry before any await or injected read. The verifier
+uses the same optional-dependency default rule as post: only `undefined`
+selects a default; supplied falsey malformed values are not silently ignored.
+Direct unit callers receive the same flag validation as parser callers.
+
+Decision read/unreadable/strict-JSON failures become
+`ReceiptInputError/DECISION_INPUT_INVALID`. After that one read, apply
+`validateReceiptV1Shape()` and return `invalid` or `unbound` immediately with
+`checked: []`. For a structurally valid fix decision, call
+`inspectStoredFixAction()` before current I/O and return its invalid result
+with `checked: []`. Then return `incomplete` immediately with
+`ARTIFACT_UNREADABLE` and `checked: []`. Thus malformed base, extension pair,
+manifest, digest, stored action grammar, unbound, and incomplete receipts do
+not read artifact, contract, schemas, installation, params, or tokens.
+
+Only a complete, internally valid bound receipt reaches current capture.
+Mirror post's current-input construction without evaluator replay:
+
+```text
+capture Bun runtime
+capture current schema manifest/buffers and compare it to the stored manifest
+construct the mandatory current validator and identity
+capture current installation manifest and compare it to the stored manifest
+resolve params always and tokens only when lint is enabled
+strict-snapshot and schema-validate a requested current contract
+snapshot the current artifact bytes without importing or evaluating them
+for fix_geometry only:
+  reuse requested contract or strict-snapshot/validate the current default action contract
+  build current exact action inputs from executable/root/artifact/contract/adapter/slide/profile
+normalize current policy once
+call verifyDecisionBinding exactly once
+```
+
+An unreadable current artifact throws
+`ReceiptInputError/CURRENT_INPUT_INVALID`; it does not fabricate a digest or
+reuse the stored one. Requested contract failures remain
+`CONTRACT_INPUT_INVALID`; default action-contract failures are
+`ACTION_CONTRACT_INVALID`. Requested contract/action aliasing reuses one
+snapshot object. The current requested-contract binding records only the
+explicit `--contract`; current action inputs use explicit-or-default exactly
+as post does.
+
+The stored decision is never validated against the mutable current decision
+schema. Code-pinned v1 validation is authoritative for stored shape; current
+schemas are captured/compiled for current policy identity and drift only.
+A valid change/addition or deletion of a non-required extra schema is stale
+and normally produces both `POLICY_CHANGED` and a manifest issue. Malformed
+schema bytes or deletion of a schema required to construct the validator are
+`SCHEMA_INPUT_INVALID`. Installation changes under `lib/**/*.mjs` are stale
+and normally produce policy plus manifest issues; missing/unreadable required
+package or lock files remain `INSTALLATION_INPUT_INVALID`.
+
+Current `action_inputs` is the exact builder output for fix decisions and the
+minimal `{ status: 'not_required' }` input for all other decisions.
+`buildDecisionBinding()` is not called by the verifier. `verifyFixAction()`
+may be asserted as a parity check in tests, but
+`verifyDecisionBinding(decision, current)` is the single status/issue fold.
+Consequently a requested contract byte change on a fix decision yields both
+`CONTRACT_CHANGED` and `ACTION_CHANGED`; a default action-contract change
+yields only `ACTION_CHANGED`; schema/installation manifest changes can
+coexist with `POLICY_CHANGED` in the published stable order.
+
+The core helper returns exactly:
+
+```js
+{
+  schema: 'aesthete.receipt-verification/v1',
+  status,
+  issues,
+  checked,
+}
+```
+
+CLI status results always print exactly
+`receipt status=<status> issues=<count>` and optionally write this exact
+object to `--out`; exits are current `0`, stale `1`, and every other status
+`2`. Usage and typed input exceptions print only
+`${error.code}: ${error.message}` to stderr, keep stdout empty, create no
+`--out`, and exit `2`. No verifier error path deletes or truncates a
+pre-existing output. Ordinary internal defects are not mislabeled as receipt
+input; they print their message and exit `1`.
+
+Real process tests use a fresh output path and isolated copied root outside
+repository ancestry, with Bun `--no-install` so `AJV_REQUIRED` cannot be
+masked by auto-install/cache resolution. The package-surface RED must assert
+the missing-script diagnostic before `package.json` changes; after adding
+the script, invoke `bun run receipt -- verify ...` with the same arguments
+and assert the normal status result.
+
 **Files:**
 - Create: `lib/skill-receipt.mjs`
 - Create: `test/skill-receipt-cli.test.mjs`
+- Modify: `lib/skill-action.mjs`
+- Modify: `test/skill-action.test.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
