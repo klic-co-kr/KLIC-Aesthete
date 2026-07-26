@@ -6,6 +6,10 @@
   "type": "object",
   "required": ["schema", "schema_version", "decision", "reasons", "scores", "next"],
   "additionalProperties": true,
+  "dependentRequired": {
+    "binding": ["claim_scope"],
+    "claim_scope": ["binding"]
+  },
   "properties": {
     "schema": { "const": "aesthete.decision/v1" },
     "schema_version": { "type": "integer", "minimum": 1 },
@@ -16,7 +20,7 @@
         "type": "object",
         "required": ["code"],
         "properties": {
-          "code": { "type": "string", "description": "Reason code (e.g. P0_COLLISION, VULN_*, SLOP_P0_*, SLOP_ADVISORY_*)." },
+          "code": { "type": "string" },
           "tier": { "type": "string" },
           "detail": { "type": "string" },
           "fixable": { "type": "boolean" }
@@ -37,9 +41,691 @@
       "required": ["action"],
       "properties": {
         "action": { "enum": ["run_fix_p0", "rewrite_generator", "stop", "ask_human"] },
-        "fix_cmd": { "type": "array", "items": { "type": "string" } },
+        "fix_cmd": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
         "loop_hint_max": { "type": "integer" }
       }
+    },
+    "claim_scope": { "$ref": "#/$defs/claimScope" },
+    "binding": { "$ref": "#/$defs/binding" }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["binding", "claim_scope"] },
+      "then": {
+        "properties": {
+          "schema_version": { "const": 1 }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "decision": { "const": "fix_geometry" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "next": {
+                  "required": ["fix_cmd"],
+                  "properties": { "action": { "const": "run_fix_p0" } }
+                },
+                "binding": {
+                  "properties": {
+                    "action_inputs": {
+                      "properties": { "status": { "const": "bound" } }
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "next": {
+                  "not": { "required": ["fix_cmd"] }
+                },
+                "binding": {
+                  "properties": {
+                    "action_inputs": {
+                      "properties": { "status": { "const": "not_required" } }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "decision": { "const": "regenerate" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "next": {
+                  "properties": { "action": { "const": "rewrite_generator" } }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "decision": { "const": "pass" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "next": {
+                  "properties": { "action": { "const": "stop" } }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "decision": { "const": "human" } },
+              "required": ["decision"]
+            },
+            "then": {
+              "properties": {
+                "next": {
+                  "properties": { "action": { "const": "ask_human" } }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "optionalNonEmptyString": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "claimRule": {
+      "type": "object",
+      "required": [
+        "requested",
+        "executed",
+        "blocking_conditions",
+        "coverage_behavior",
+        "advisory_behavior"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "requested": { "type": "boolean" },
+        "executed": { "type": "boolean" },
+        "blocking_conditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "coverage_behavior": { "type": "string" },
+        "advisory_behavior": { "type": "string" }
+      }
+    },
+    "claimScope": {
+      "type": "object",
+      "required": ["schema", "pass_means", "rules", "does_not_establish"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "const": "aesthete.claim-scope/v1" },
+        "pass_means": { "const": "no_enabled_blocking_rule_triggered" },
+        "rules": {
+          "type": "object",
+          "required": [
+            "artifact_import",
+            "alt_hard_integrity",
+            "coverage",
+            "structure_signature",
+            "token_policy",
+            "known_bad_signatures",
+            "html_pattern_scan",
+            "contract_criteria"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "artifact_import": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": {
+                      "const": ["read_parse_or_schema_failure_routes_to_regenerate"]
+                    },
+                    "coverage_behavior": {
+                      "const": "failure_prevents_downstream_execution"
+                    },
+                    "advisory_behavior": { "const": "none" }
+                  }
+                }
+              ]
+            },
+            "alt_hard_integrity": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": {
+                      "const": ["p0_score_below_one_routes_to_fix_regenerate_or_human"]
+                    },
+                    "coverage_behavior": { "const": "reported_separately" },
+                    "advisory_behavior": {
+                      "const": "non_p0_measurements_do_not_directly_block"
+                    }
+                  }
+                }
+              ]
+            },
+            "coverage": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": { "const": ["zero_routes_to_human"] },
+                    "coverage_behavior": {
+                      "const": "nonzero_does_not_imply_full_coverage"
+                    },
+                    "advisory_behavior": { "const": "none" }
+                  }
+                }
+              ]
+            },
+            "structure_signature": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": { "const": ["fail_routes_to_regenerate"] },
+                    "coverage_behavior": { "const": "unknown_is_nonblocking" },
+                    "advisory_behavior": { "const": "none" }
+                  }
+                }
+              ]
+            },
+            "token_policy": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": {
+                      "const": ["any_violation_routes_to_regenerate"]
+                    },
+                    "coverage_behavior": {
+                      "const": "no_separate_coverage_state"
+                    },
+                    "advisory_behavior": { "const": "none" }
+                  }
+                }
+              ]
+            },
+            "known_bad_signatures": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": {
+                      "const": [
+                        "high_findings_route_to_regenerate_only_when_vuln_gate_enabled"
+                      ]
+                    },
+                    "coverage_behavior": {
+                      "const": "scanner_coverage_does_not_independently_block"
+                    },
+                    "advisory_behavior": {
+                      "const": "ungated_high_findings_add_advisory_reasons"
+                    }
+                  }
+                }
+              ]
+            },
+            "html_pattern_scan": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": {
+                      "const": [
+                        "branch_1_when_html_measured_and_p0_exists_regenerate",
+                        "branch_2_else_when_html_measured_and_gate_enabled_and_p1_exists_regenerate",
+                        "branch_3_else_when_html_measured_and_p0_signature_unmeasured_human"
+                      ]
+                    },
+                    "coverage_behavior": {
+                      "const": "whole_scan_unmeasurable_is_nonblocking"
+                    },
+                    "advisory_behavior": {
+                      "const": "branch_4_only_p2_findings_add_reasons_after_no_prior_branch_p1_ungated_does_not"
+                    }
+                  }
+                }
+              ]
+            },
+            "contract_criteria": {
+              "allOf": [
+                { "$ref": "#/$defs/claimRule" },
+                {
+                  "properties": {
+                    "blocking_conditions": {
+                      "const": ["non_p0_criterion_failure_routes_to_regenerate"]
+                    },
+                    "coverage_behavior": {
+                      "const": "p0_only_contract_failure_is_nonblocking_in_contract_branch"
+                    },
+                    "advisory_behavior": { "const": "none" }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "does_not_establish": {
+          "const": [
+            "reader_comprehension",
+            "pixel_output_equivalence",
+            "host_application_behavior",
+            "human_approval"
+          ]
+        }
+      }
+    },
+    "manifestEntry": {
+      "type": "object",
+      "required": ["relative_path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "relative_path": { "type": "string" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "schemaManifest": {
+      "type": "object",
+      "required": ["sha256", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "sha256": { "$ref": "#/$defs/digest" },
+        "files": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/manifestEntry" },
+              {
+                "properties": {
+                  "relative_path": {
+                    "type": "string",
+                    "pattern": "^schemas/[A-Za-z0-9._-]+\\.json$"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "installationManifest": {
+      "type": "object",
+      "required": ["sha256", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "sha256": { "$ref": "#/$defs/digest" },
+        "files": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/manifestEntry" },
+              {
+                "properties": {
+                  "relative_path": {
+                    "anyOf": [
+                      {
+                        "enum": ["package.json", "bun.lock", "package-lock.json"]
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^lib/(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\\.mjs$"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "adapter",
+        "profile",
+        "structure",
+        "lint",
+        "vuln",
+        "vuln_gate",
+        "slop",
+        "slop_gate",
+        "slop_autofix",
+        "human_on_unfixable",
+        "artifact_type",
+        "resources",
+        "validation",
+        "runtime"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "type": "object",
+          "required": ["id", "effective_slide"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "enum": ["svg", "html", "pptx", "docx", "xlsx", "image", "alt"]
+            },
+            "effective_slide": { "type": ["integer", "null"], "minimum": 1 }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": { "id": { "const": "pptx" } },
+                "required": ["id"]
+              },
+              "then": {
+                "properties": {
+                  "effective_slide": { "type": "integer", "minimum": 1 }
+                }
+              },
+              "else": {
+                "properties": { "effective_slide": { "type": "null" } }
+              }
+            }
+          ]
+        },
+        "profile": { "$ref": "#/$defs/optionalNonEmptyString" },
+        "structure": { "$ref": "#/$defs/optionalNonEmptyString" },
+        "lint": { "type": "boolean" },
+        "vuln": { "type": "boolean" },
+        "vuln_gate": { "type": "boolean" },
+        "slop": { "type": "boolean" },
+        "slop_gate": { "type": "boolean" },
+        "slop_autofix": { "type": "boolean" },
+        "human_on_unfixable": { "type": "boolean" },
+        "artifact_type": { "$ref": "#/$defs/optionalNonEmptyString" },
+        "resources": {
+          "type": "object",
+          "required": [
+            "params_sha256",
+            "tokens_sha256",
+            "schemas",
+            "on_disk_installation"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "params_sha256": { "$ref": "#/$defs/digest" },
+            "tokens_sha256": {
+              "anyOf": [
+                { "$ref": "#/$defs/digest" },
+                { "type": "null" }
+              ]
+            },
+            "schemas": { "$ref": "#/$defs/schemaManifest" },
+            "on_disk_installation": { "$ref": "#/$defs/installationManifest" }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "required": ["mode", "version"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "ajv" },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "required": [
+            "engine",
+            "version",
+            "platform",
+            "arch",
+            "locale",
+            "versions_sha256"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "engine": { "const": "bun" },
+            "version": { "type": "string", "minLength": 1 },
+            "platform": { "type": "string", "minLength": 1 },
+            "arch": { "type": "string", "minLength": 1 },
+            "locale": { "type": "string", "minLength": 1 },
+            "versions_sha256": { "$ref": "#/$defs/digest" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "lint": { "const": true } },
+            "required": ["lint"]
+          },
+          "then": {
+            "properties": {
+              "resources": {
+                "properties": {
+                  "tokens_sha256": { "$ref": "#/$defs/digest" }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "resources": {
+                "properties": {
+                  "tokens_sha256": { "type": "null" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "artifactBinding": {
+      "type": "object",
+      "required": ["status", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["bound", "unreadable"] },
+        "sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/digest" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "contractBinding": {
+      "type": "object",
+      "required": ["status", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["bound", "not_requested"] },
+        "sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/digest" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "bound" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": { "sha256": { "$ref": "#/$defs/digest" } }
+          },
+          "else": {
+            "properties": { "sha256": { "type": "null" } }
+          }
+        }
+      ]
+    },
+    "actionInputs": {
+      "type": "object",
+      "required": [
+        "status",
+        "runtime_executable_locator_sha256",
+        "script_locator_sha256",
+        "artifact_locator_sha256",
+        "contract_locator_sha256",
+        "contract_sha256",
+        "adapter",
+        "slide",
+        "profile"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["bound", "not_required"] },
+        "runtime_executable_locator_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "script_locator_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "artifact_locator_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "contract_locator_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "contract_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "adapter": {
+          "anyOf": [
+            {
+              "enum": ["svg", "html", "pptx", "docx", "xlsx", "image", "alt"]
+            },
+            { "type": "null" }
+          ]
+        },
+        "slide": { "type": ["integer", "null"], "minimum": 1 },
+        "profile": { "$ref": "#/$defs/optionalNonEmptyString" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "not_required" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "runtime_executable_locator_sha256": { "type": "null" },
+              "script_locator_sha256": { "type": "null" },
+              "artifact_locator_sha256": { "type": "null" },
+              "contract_locator_sha256": { "type": "null" },
+              "contract_sha256": { "type": "null" },
+              "adapter": { "type": "null" },
+              "slide": { "type": "null" },
+              "profile": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "runtime_executable_locator_sha256": { "$ref": "#/$defs/digest" },
+              "script_locator_sha256": { "$ref": "#/$defs/digest" },
+              "artifact_locator_sha256": { "$ref": "#/$defs/digest" },
+              "contract_locator_sha256": { "$ref": "#/$defs/digest" },
+              "contract_sha256": { "$ref": "#/$defs/digest" },
+              "adapter": {
+                "enum": ["svg", "html", "pptx", "docx", "xlsx", "image", "alt"]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "adapter": { "const": "pptx" } },
+                  "required": ["adapter"]
+                },
+                "then": {
+                  "properties": {
+                    "slide": { "type": "integer", "minimum": 1 }
+                  }
+                },
+                "else": {
+                  "properties": { "slide": { "type": "null" } }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "binding": {
+      "type": "object",
+      "required": [
+        "schema",
+        "algorithm",
+        "integrity",
+        "completeness",
+        "artifact",
+        "contract",
+        "action_inputs",
+        "policy",
+        "policy_sha256",
+        "decision_core_sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "const": "aesthete.binding/v1" },
+        "algorithm": { "const": "sha256" },
+        "integrity": {
+          "const": "content_freshness_and_internal_consistency_not_authenticity"
+        },
+        "completeness": { "enum": ["complete", "incomplete"] },
+        "artifact": { "$ref": "#/$defs/artifactBinding" },
+        "contract": { "$ref": "#/$defs/contractBinding" },
+        "action_inputs": { "$ref": "#/$defs/actionInputs" },
+        "policy": { "$ref": "#/$defs/policy" },
+        "policy_sha256": { "$ref": "#/$defs/digest" },
+        "decision_core_sha256": { "$ref": "#/$defs/digest" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "completeness": { "const": "complete" } },
+            "required": ["completeness"]
+          },
+          "then": {
+            "properties": {
+              "artifact": {
+                "properties": {
+                  "status": { "const": "bound" },
+                  "sha256": { "$ref": "#/$defs/digest" }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "artifact": {
+                "properties": {
+                  "status": { "const": "unreadable" },
+                  "sha256": { "type": "null" }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
