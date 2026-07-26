@@ -1,22 +1,28 @@
 # Intent Packet Design
 
-**Status:** Design approved; written spec awaiting user review
+**Status:** Revised after external skill-architecture review; awaiting user review
 
 **Aesthete baseline:** `origin/main` at
 `ea5c3a0c0498f481e40cd0216b4ea0491d9fc5d4`; local feature head before this
 spec at `8e6b90d288001f18bdf078f2d88933d37ff72034`
 
-**Remote comparison:** local feature head is 27 commits ahead of and 0 commits
-behind `origin/main`
+**Revision baseline:** prior design commit
+`ffd7d343a7c3583dae366f620987d03a56d6b1cb` was 28 commits ahead of and 0
+commits behind `origin/main`
 
-**Concept review source:** [`vibeworkers/visual-authoring`](https://github.com/vibeworkers/visual-authoring)
-main at `16c23819dd5136585fd43736b400eae7a1d6324a`
+**Concept review sources:**
+
+- [`vibeworkers/visual-authoring`](https://github.com/vibeworkers/visual-authoring)
+  main at `16c23819dd5136585fd43736b400eae7a1d6324a`;
+- [`jakubkrehel/skills`](https://github.com/jakubkrehel/skills) main at
+  `79a09456be60419e652e63fc9e057b5587d051ea`.
 
 ## 1. Goal
 
 Add a deterministic, machine-readable intent packet between Aesthete's brief
-and generated artifact. The packet records why an artifact is being made, for
-whom, what action it should support, what source state must be preserved, and
+and generated artifact. The packet records why an artifact is being made, its
+included and excluded scope, the intended content priority, for whom it is
+made, what action it should support, what source state must be preserved, and
 what the generator must not assume.
 
 The packet has two roles:
@@ -39,10 +45,56 @@ The useful concepts reviewed in `visual-authoring` are:
 - keep structural, visual, runtime, and human approval claims separate;
 - leave final approval to a human.
 
-Aesthete adopts only these high-level workflow principles. This design does
-not copy source code, schemas, field ordering, taxonomy ordering, test wording,
-or prose from `visual-authoring`. Aesthete keeps its own deterministic
-pre/post architecture and narrow geometric decision contract.
+The useful concepts reviewed in `jakubkrehel/skills` are:
+
+- resolve the exact reviewed screen, flow, feature, or repository boundary
+  before making claims;
+- never imply that an uninspected surface was reviewed;
+- let content importance determine reading order and hierarchy;
+- give each rule and review domain one owner instead of duplicating it across
+  orchestrators;
+- separate evidence, unverified coverage, findings, and final verdict;
+- preserve established project conventions unless a migration is in scope.
+
+Aesthete adopts only the high-level principles that fit this feature. This
+design does not copy source code, schemas, field ordering, taxonomy ordering,
+test wording, numeric UI recipes, or prose from either reviewed repository.
+Aesthete keeps its own deterministic pre/post architecture and narrow
+geometric decision contract.
+
+### 2.1 Adopted now
+
+Two reviewed principles change the intent packet:
+
+1. explicit included and excluded scope, so a broad goal cannot silently
+   expand into unrequested surfaces;
+2. explicit ordered content priority, so the generator does not have to infer
+   which information should dominate the layout.
+
+The second change is Aesthete's design inference from the reviewed
+importance-ordering principle; the source repository does not define this
+packet or field. The one-owner principle also sharpens module boundaries in
+Section 7.
+
+### 2.2 Deliberately not adopted in this feature
+
+- `quick | full` review modes are not intent. Aesthete's actual enabled checks
+  already live in receipt-bound post policy; duplicating them in intent would
+  create a second policy source.
+- Accessibility, typography, color, writing, and motion rules are separate
+  domains. Aesthete must not claim those reviews from geometric evidence it
+  does not have.
+- Shared severity scales, finding caps, before/after recommendations, and
+  considered-but-rejected findings belong to review presentation, not the
+  generation-context packet.
+- Responsive, RTL, zoom, keyboard, and screen-reader verification require
+  runtime evidence. A declared canvas or scope must not be presented as that
+  evidence.
+
+The future interactive viewport should reuse the reviewed evidence discipline:
+show exact scope, measured or unmeasured coverage, evidence location,
+verification gaps, and consolidated root causes. That follow-up must not alter
+the arithmetic decision fold.
 
 ## 3. Selected Semantics
 
@@ -73,6 +125,15 @@ Add `schemas/intent.schema.json` with an exact,
   "schema": "aesthete.intent/v1",
   "schema_version": 1,
   "goal": "운영 지표를 빠르게 판단하는 대시보드",
+  "scope": {
+    "included": ["운영 현황 화면", "이상 지표 탐색"],
+    "excluded": ["관리자 설정", "사용자 권한 편집"]
+  },
+  "content_priority": [
+    "이상 지표와 심각도",
+    "원인 확인에 필요한 추세",
+    "후속 조치"
+  ],
   "artifact": {
     "requested_type": "dashboard",
     "effective_type": "dashboard",
@@ -94,6 +155,8 @@ Add `schemas/intent.schema.json` with an exact,
     "does_not_establish": [
       "intent_correctness",
       "intent_fulfillment",
+      "scope_coverage",
+      "priority_fulfillment",
       "audience_comprehension",
       "human_approval"
     ]
@@ -108,6 +171,9 @@ Add `schemas/intent.schema.json` with an exact,
 | `schema` | Exact value `aesthete.intent/v1` |
 | `schema_version` | Exact integer `1` |
 | `goal` | Non-whitespace string or `null` |
+| `scope.included` | Ordered unique non-whitespace strings |
+| `scope.excluded` | Ordered unique non-whitespace strings |
+| `content_priority` | Ordered unique non-whitespace strings, highest priority first |
 | `artifact.requested_type` | Original non-whitespace `brief.artifact_type` |
 | `artifact.effective_type` | Profile-resolved type from preflight, including `generic` fallback |
 | `artifact.format` | Existing format enum or `null` |
@@ -121,10 +187,16 @@ Add `schemas/intent.schema.json` with an exact,
 | `claim_scope` | Fixed literal object shown above |
 
 All keys are always present. Optional scalar values use `null`, optional lists
-use `[]`, and an omitted source mode becomes `unspecified`. The builder
-preserves input strings and list order; it does not trim, sort, paraphrase,
-deduplicate, or infer values. Brief validation rejects whitespace-only strings
-and duplicate list members before the builder runs.
+use `[]`, both scope lists remain present even when empty, and an omitted
+source mode becomes `unspecified`. The builder preserves input strings and
+list order; it does not trim, sort, paraphrase, deduplicate, or infer values.
+Brief validation rejects whitespace-only strings and duplicate list members
+before the builder runs.
+
+`scope.included` and `scope.excluded` are declared generation boundaries, not
+proof of inspected or implemented coverage. `content_priority` order is an
+instruction to the generator, not proof that the resulting reading order
+satisfies it.
 
 ## 5. Brief Extension
 
@@ -132,6 +204,15 @@ Extend `schemas/brief.schema.json` with these optional properties:
 
 ```json
 {
+  "scope": {
+    "included": ["운영 현황 화면", "이상 지표 탐색"],
+    "excluded": ["관리자 설정", "사용자 권한 편집"]
+  },
+  "content_priority": [
+    "이상 지표와 심각도",
+    "원인 확인에 필요한 추세",
+    "후속 조치"
+  ],
   "audience": "일일 운영 담당자",
   "desired_action": "이상 지표를 찾아 후속 조치한다",
   "source_mode": "continue_improve",
@@ -148,8 +229,16 @@ The existing fields map as follows:
 - `format` and `canvas` → the corresponding artifact fields;
 - `audience_frequency` → `intent.audience.frequency`.
 
-The new fields are optional for backward compatibility. Their absence produces
-explicit unknown values rather than generated guesses.
+The new `scope`, `content_priority`, `audience`, `desired_action`,
+`source_mode`, `must_preserve`, and `must_not_assume` fields map directly to
+their intent counterparts.
+
+All new fields are optional for backward compatibility. Their absence produces
+explicit empty or unknown values rather than generated guesses. If the same
+non-empty string appears in both `scope.included` and `scope.excluded`,
+`buildIntentPacket()` rejects the exact-string contradiction after brief
+schema validation instead of choosing one side. This comparison is
+case-sensitive and does not attempt semantic synonym detection.
 
 ## 6. Pre Architecture and Output
 
@@ -188,18 +277,40 @@ The CLI writes:
 Intent bullets use a fixed order:
 
 1. declared goal, when present;
-2. audience description and frequency, when present;
-3. desired action, when present;
-4. source mode, unless `unspecified`;
-5. one bullet per `must_preserve` entry;
-6. one bullet per `must_not_assume` entry.
+2. one included-scope bullet per declared entry;
+3. one excluded-scope bullet per declared entry;
+4. one numbered priority bullet per `content_priority` entry;
+5. audience description and frequency, when present;
+6. desired action, when present;
+7. source mode, unless `unspecified`;
+8. one bullet per `must_preserve` entry;
+9. one bullet per `must_not_assume` entry.
 
 No bullet is invented for a missing value. Existing structural, budget,
 negation, and anti-slop bullets retain their current relative ordering. Intent
 bullets are appended as one contiguous block so their provenance remains
 testable.
 
-## 7. Post Snapshot Boundary
+## 7. Responsibility Ownership
+
+Each concern has one owner:
+
+| Concern | Owner | Must not own |
+|---|---|---|
+| Declared context normalization and intent bullets | `lib/skill-intent.mjs` | geometry, review severity, receipt freshness |
+| Pre orchestration and file emission | `lib/skill-pre.mjs` | intent inference, post decisions |
+| Geometry and signature evidence | existing measure/lint/vuln/slop modules | intent truth or human approval |
+| Decision fold | existing `foldDecision()` | intent fields or viewport presentation |
+| Intent snapshot and digest | `lib/skill-snapshot.mjs` | prompt rendering or decision changes |
+| Binding validation and freshness comparison | `lib/skill-receipt-core.mjs` | domain measurement rules |
+| Review presentation and coverage consolidation | future interactive viewport | re-evaluation or decision override |
+
+Cross-domain concerns are handed off rather than reimplemented. In particular,
+the intent packet may declare a desired action or priority, but no module may
+turn that declaration into an accessibility, typography, responsive-runtime,
+or comprehension claim.
+
+## 8. Post Snapshot Boundary
 
 Add optional `--intent <path>` support to `aesthete-post` and
 `aesthete-gate`.
@@ -219,7 +330,7 @@ claim-scope construction, `foldDecision()`, or action construction.
 If `--intent` is absent, post-processing continues normally and records
 `not_requested`.
 
-## 8. Receipt Versioning
+## 9. Receipt Versioning
 
 Keep the outer decision at `aesthete.decision/v1`. Add
 `aesthete.binding/v2` rather than changing the exact v1 binding shape.
@@ -269,7 +380,7 @@ Receipt validation dispatches on `binding.schema`:
 
 Do not mutate the v1 validator to accept v2 fields.
 
-## 9. Verification Semantics
+## 10. Verification Semantics
 
 Add `--intent <path>` to `aesthete-receipt verify`.
 
@@ -302,7 +413,7 @@ The CLI keeps the existing status exit contract:
 - `stale` → `1`;
 - invalid, incomplete, unbound, usage, or input failure → `2`.
 
-## 10. Error Handling
+## 11. Error Handling
 
 An explicitly requested intent file is a receipt input boundary. Unreadable
 bytes, duplicate JSON keys, invalid Unicode, JSON parse failure, or schema
@@ -320,12 +431,13 @@ Brief schema failures retain the existing pre CLI error behavior. Output
 directories are not created until the brief and in-memory intent packet are
 valid.
 
-## 11. Decision Invariance
+## 12. Decision Invariance
 
 The central acceptance property is:
 
 > For identical artifact, contract, flags, resources, runtime, and installation,
-> changing only a valid intent packet may change generator bullets and
+> changing only a valid intent packet, including scope or priority, may change
+> generator bullets and
 > `binding.intent.sha256`, but must not change `decision`, `reasons`, `scores`,
 > `next`, `claim_scope`, `policy`, or `decision_core_sha256`.
 
@@ -333,29 +445,33 @@ This is enforced by both architecture and tests: evaluator functions have no
 intent parameter, and a paired test compares the complete decision core for
 two different valid packets.
 
-## 12. Test Strategy
+## 13. Test Strategy
 
-### 12.1 Intent unit tests
+### 13.1 Intent unit tests
 
 - exact minimal packet from a legacy brief;
 - exact full packet from all new brief fields;
 - byte-equivalent canonical output for repeated identical input;
 - requested type versus effective generic fallback;
 - fixed null, empty-list, and `unspecified` defaults;
-- no inferred audience, action, source, or preservation claim;
+- no inferred scope, priority, audience, action, source, or preservation claim;
+- included/excluded scope contradiction rejection;
+- ordered priority preservation and numbered prompt bullets;
 - fixed claim-scope literals;
 - stable prompt-bullet ordering;
 - whitespace-only and duplicate-list input rejection.
 
-### 12.2 Pre surface tests
+### 13.2 Pre surface tests
 
 - `runPre()` remains write-free;
 - CLI emits `intent.json` and `pre.json.intent_path`;
 - `prompt_bullets.md` includes each declared intent exactly once;
+- included scope, excluded scope, and priority bullets retain fixed grouping
+  and order;
 - existing brief fixtures remain valid and deterministic;
 - invalid intent-related brief data produces no output directory.
 
-### 12.3 Post snapshot tests
+### 13.3 Post snapshot tests
 
 - intent bytes are read exactly once;
 - parsing, validation, and digesting use the first buffered bytes even if the
@@ -364,7 +480,7 @@ two different valid packets.
   fail with `INTENT_INPUT_INVALID`;
 - no decision file is emitted after an invalid requested intent.
 
-### 12.4 Receipt core tests
+### 13.4 Receipt core tests
 
 - exact v2 key and status validation;
 - v1 receipts remain shape-valid and use the pinned v1 comparison behavior;
@@ -375,7 +491,7 @@ two different valid packets.
 - unknown binding versions fail closed;
 - changing only intent leaves the entire decision core identical.
 
-### 12.5 CLI and regression tests
+### 13.5 CLI and regression tests
 
 - strict `--intent` parsing: unknown, duplicate, or missing values fail;
 - post, gate, and verifier exit/output contracts;
@@ -383,7 +499,7 @@ two different valid packets.
 - full repository test suite;
 - skill and integration documentation examples stay synchronized.
 
-## 13. Documentation and Skill Surface
+## 14. Documentation and Skill Surface
 
 Update:
 
@@ -399,6 +515,9 @@ Update:
 Documentation must say:
 
 - intent is declared generation context, not measured truth;
+- declared scope is a generation boundary, not review or implementation
+  coverage;
+- declared content priority is not proof of resulting reading order;
 - `must_preserve` and `must_not_assume` are generator instructions, not
   geometric enforcement;
 - a current receipt proves content freshness and internal consistency only;
@@ -407,7 +526,7 @@ Documentation must say:
 - consumers may branch on `.decision` only after the receipt status is
   `current`.
 
-## 14. Scope and Task Order
+## 15. Scope and Task Order
 
 This spec is one feature-sized project and will be implemented in this order:
 
@@ -428,19 +547,25 @@ plan -> adversarial review -> implement -> adversarial review -> fix -> next tas
 
 Interactive viewport consumption is a later task. This design provides the
 stable `intent.json` and receipt freshness surface that viewport work will
-consume; it does not implement the viewport.
+consume; it does not implement the viewport. Its later design should present
+exact requested scope, evidence location, measured/unmeasured coverage,
+verification gaps, and consolidated root causes without inventing unavailable
+domain reviews or overriding the decision.
 
-## 15. Acceptance Criteria
+## 16. Acceptance Criteria
 
 The feature is ready when:
 
 1. pre always emits a schema-valid deterministic intent packet;
 2. missing intent fields remain explicitly unknown and are never inferred;
-3. declared intent reaches generation prompt bullets;
-4. post/gate can bind an optional strict single-snapshot intent input;
-5. new receipts use exact binding v2 while pinned v1 receipts still verify;
-6. changed intent yields deterministic `INTENT_CHANGED` staleness;
-7. invalid requested intent fails closed with exit `2` and no decision output;
-8. paired tests prove intent cannot alter the decision core;
-9. all repository tests pass;
-10. documentation preserves the narrow claim and human-approval boundary.
+3. included and excluded scope contradictions fail before output;
+4. content priority remains ordered and reaches numbered generation bullets;
+5. all other declared intent reaches generation prompt bullets;
+6. post/gate can bind an optional strict single-snapshot intent input;
+7. new receipts use exact binding v2 while pinned v1 receipts still verify;
+8. changed intent yields deterministic `INTENT_CHANGED` staleness;
+9. invalid requested intent fails closed with exit `2` and no decision output;
+10. paired tests prove intent cannot alter the decision core;
+11. all repository tests pass;
+12. documentation preserves scope, evidence, measurement, and human-approval
+    boundaries.
