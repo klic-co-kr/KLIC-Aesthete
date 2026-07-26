@@ -41,3 +41,46 @@ Baseline: `npm test` passed with 654 tests and 0 failures.
 
 Gate: READY. No accepted production finding remained after the test-message
 correction.
+
+## Task 2 — Pre integration
+
+### Pre-review
+
+- `runPre()` remains write-free but becomes async so it can complete schema validation.
+- Existing structure, budget, negation, and slop bullet relative order is frozen.
+- Intent bullets form one appended contiguous block.
+- The CLI computes and validates every in-memory output before creating the output directory.
+- `intent.json` is SSOT; `pre.json` contains only `intent_path`.
+- Gate: READY when legacy briefs need no new field and all sync `runPre()` callers are enumerated.
+
+Caller enumeration found nine test call sites and the CLI main. Every caller
+was converted to `await`; no external runtime caller exists in this repository.
+
+### RED
+
+- The focused pre/intent run produced 20 passes and 2 expected failures.
+- In-memory integration failed because `intentPath` was undefined.
+- The CLI integration failed because `<out-dir>/intent.json` did not exist.
+- Invalid whitespace-only intent input already failed before directory
+  creation through the Task 1 brief-schema boundary.
+
+### GREEN
+
+- `bun test test/skill-intent.test.mjs test/skill-surface.test.mjs -t
+  "pre|intent|slop-pre"`: 22 pass, 0 fail.
+- `bun test test/preflight.test.mjs test/diversify.test.mjs`:
+  29 pass, 0 fail.
+
+### Post-review
+
+- All repository `runPre()` call sites await the async result.
+- `runPre()` returns intent data without creating its requested output path.
+- CLI validation and in-memory construction precede `fs.mkdirSync()`.
+- The CLI writes one `intent.json`; `pre.json` stores only its absolute path.
+- Existing bullet order is unchanged and intent bullets are one final block.
+- Invalid declared intent leaves the requested output directory absent.
+- `bun test test/skill-surface.test.mjs --rerun-each 2`:
+  90 pass, 0 fail.
+- `git diff --check`: pass.
+
+Gate: READY. No production correction was required after the post-review.

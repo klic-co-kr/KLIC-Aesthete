@@ -4,7 +4,14 @@
   "title": "Aesthete Pre Bundle",
   "description": "Output of lib/skill-pre.mjs (aesthete.pre/v1).",
   "type": "object",
-  "required": ["schema", "schema_version", "artifact_type", "prompt_bullets", "structure"],
+  "required": [
+    "schema",
+    "schema_version",
+    "artifact_type",
+    "intent_path",
+    "prompt_bullets",
+    "structure"
+  ],
   "additionalProperties": true,
   "properties": {
     "schema": { "const": "aesthete.pre/v1" },
@@ -22,6 +29,7 @@
       }
     },
     "contract_path": { "type": ["string", "null"] },
+    "intent_path": { "type": ["string", "null"] },
     "prompt_bullets": {
       "type": "array",
       "items": { "type": "string" },

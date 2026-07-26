@@ -76,9 +76,11 @@ test('resolveOutDir: relative jail + absolute opt-in', () => {
   expect(abs).toBe(path.resolve('/tmp/ae-allowed'));
 });
 
-test('pre: dashboard brief → prompt_bullets ≥ 3 + contract', () => {
+test('pre: dashboard brief → prompt_bullets ≥ 3 + contract', async () => {
   const brief = readJson(dashBriefPath);
-  const { bundle } = runPre(brief, { outDir: path.join(root, '.aesthete-skill-test-pre') });
+  const { bundle } = await runPre(brief, {
+    outDir: path.join(root, '.aesthete-skill-test-pre'),
+  });
   expect(bundle.schema).toBe('aesthete.pre/v1');
   expect(bundle.recognized).toBe(true);
   expect(bundle.structure.id).toBeTruthy();
@@ -87,14 +89,89 @@ test('pre: dashboard brief → prompt_bullets ≥ 3 + contract', () => {
   expect(bundle.optional?.keyhole?.max_visible_chunks).toBe(4);
 });
 
-test('pre: deterministic without diversify', () => {
+test('pre: deterministic without diversify', async () => {
   const brief = readJson(dashBriefPath);
-  const a = buildPreBundle(runPre(brief).spec);
-  const b = buildPreBundle(runPre(brief).spec);
+  const a = buildPreBundle((await runPre(brief)).spec);
+  const b = buildPreBundle((await runPre(brief)).spec);
   // strip nothing — full bundle should match (no paths)
   expect(JSON.stringify(a.prompt_bullets)).toBe(JSON.stringify(b.prompt_bullets));
   expect(a.structure.id).toBe(b.structure.id);
   expect(JSON.stringify(a.contract)).toBe(JSON.stringify(b.contract));
+});
+
+test('pre: intent is validated, returned, and appended as one bullet block', async () => {
+  const outDir = path.join(root, '.aesthete-skill-test-intent');
+  const { bundle, intent, intentPath } = await runPre({
+    artifact_type: 'dashboard',
+    scope: { included: ['overview'], excluded: ['settings'] },
+    content_priority: ['alerts', 'trend'],
+    desired_action: 'triage an alert',
+  }, { outDir });
+  expect(intentPath).toBe(path.join(outDir, 'intent.json'));
+  expect(bundle.intent_path).toBe(intentPath);
+  expect(bundle.intent).toBeUndefined();
+  expect(bundle.prompt_bullets.slice(-5)).toEqual([
+    'Included scope: overview',
+    'Excluded scope: settings',
+    'Content priority 1: alerts',
+    'Content priority 2: trend',
+    'Desired audience action: triage an alert',
+  ]);
+  expect(intent.claim_scope.role)
+    .toBe('declared_generation_context_not_evaluation');
+  expect(fs.existsSync(intentPath)).toBe(false);
+});
+
+test('pre CLI emits intent.json and pre.json points to it', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-intent-pre-'));
+  try {
+    const briefPath = path.join(tempDir, 'brief.json');
+    const outDir = path.join(tempDir, 'out');
+    fs.writeFileSync(briefPath, JSON.stringify({
+      artifact_type: 'dashboard',
+      content_priority: ['alerts'],
+    }));
+    const result = spawnSync(process.execPath, [
+      '--no-install',
+      path.join(root, 'lib', 'skill-pre.mjs'),
+      briefPath,
+      '--out-dir',
+      outDir,
+    ], { cwd: root, encoding: 'utf8' });
+    expect(result.status).toBe(0);
+    const intentPath = path.join(outDir, 'intent.json');
+    expect(JSON.parse(fs.readFileSync(intentPath, 'utf8')).schema)
+      .toBe('aesthete.intent/v1');
+    expect(JSON.parse(fs.readFileSync(
+      path.join(outDir, 'pre.json'),
+      'utf8',
+    )).intent_path).toBe(intentPath);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('pre CLI creates no output for invalid declared intent', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-intent-pre-'));
+  try {
+    const briefPath = path.join(tempDir, 'brief.json');
+    const outDir = path.join(tempDir, 'out');
+    fs.writeFileSync(briefPath, JSON.stringify({
+      artifact_type: 'dashboard',
+      desired_action: '   ',
+    }));
+    const result = spawnSync(process.execPath, [
+      '--no-install',
+      path.join(root, 'lib', 'skill-pre.mjs'),
+      briefPath,
+      '--out-dir',
+      outDir,
+    ], { cwd: root, encoding: 'utf8' });
+    expect(result.status).not.toBe(0);
+    expect(fs.existsSync(outDir)).toBe(false);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test('post: catalog-bad → fix_geometry (P0)', async () => {
@@ -730,7 +807,7 @@ test('negationBundle + renderPromptBullets non-empty', () => {
 // ---- slop-pre (Task 11) ----
 const slopTmpDir = () => { const d = path.join(import.meta.dir, '.tmp-slop-pre'); fs.mkdirSync(d, { recursive: true }); return d; };
 
-test('skill-pre: html brief → prompt_bullets include slop constraints + slopTestMd contract in-memory (write-free runPre)', () => {
+test('skill-pre: html brief → prompt_bullets include slop constraints + slopTestMd contract in-memory (write-free runPre)', async () => {
   const outDir = path.join(slopTmpDir(), 'out');
   // Clean slate: the tmp dir is reused across runs, so a stale slop-test.md from a
   // prior (pre-fix) runPre would mask the write-free assertion below.
@@ -738,7 +815,7 @@ test('skill-pre: html brief → prompt_bullets include slop constraints + slopTe
   const brief = { artifact_type: 'marketing', format: 'html', brief: 'hero landing' };
   // runPre is write-free (Task 9 pattern): it returns the rendered slop-test markdown
   // for main() to emit — assert the IN-MEMORY contract, not a file on disk.
-  const { bundle, slopTestMd } = runPre(brief, { outDir });
+  const { bundle, slopTestMd } = await runPre(brief, { outDir });
   expect(bundle.prompt_bullets.some((b) => /gradient|emoji|glass/i.test(b))).toBe(true);
   expect(typeof slopTestMd).toBe('string');
   expect(slopTestMd.includes('NON-ENFORCED')).toBe(true);
@@ -747,12 +824,15 @@ test('skill-pre: html brief → prompt_bullets include slop constraints + slopTe
   expect(fs.existsSync(path.join(outDir, 'slop-test.md'))).toBe(false);
 });
 
-test('skill-pre: per-key negation merge — preflight copy + slop copy both survive (regression, Task 11 review Finding 1)', () => {
+test('skill-pre: per-key negation merge — preflight copy + slop copy both survive (regression, Task 11 review Finding 1)', async () => {
   // A shallow `{...preflight, ...slop}` merge would let slop's terse `copy` entry
   // overwrite preflight's richer copy guidance ("use real numbers or a labelled
   // placeholder, never invent") in spec.negation.copy, dropping it from prompt_bullets.
   // Per-key concat (mergeNeg) unions both — assert the union survives.
-  const { bundle } = runPre({ artifact_type: 'report', format: 'html' }, {});
+  const { bundle } = await runPre({
+    artifact_type: 'report',
+    format: 'html',
+  }, {});
   // preflight's richer copy guidance survives the merge
   expect(bundle.prompt_bullets.some((b) => /real numbers|placeholder|never invent/i.test(b))).toBe(true);
   // slop's terse copy entry is ALSO present (union, not replace). slop uses
@@ -763,14 +843,23 @@ test('skill-pre: per-key negation merge — preflight copy + slop copy both surv
   expect(bundle.negation.raw.copy.length).toBe(2);
 });
 
-test('skill-pre: same brief twice (no diversify) → byte-identical slop bullets (deterministic)', () => {
-  const a = runPre({ artifact_type: 'report', format: 'html' }, {}).bundle.prompt_bullets;
-  const b = runPre({ artifact_type: 'report', format: 'html' }, {}).bundle.prompt_bullets;
+test('skill-pre: same brief twice (no diversify) → byte-identical slop bullets (deterministic)', async () => {
+  const a = (await runPre({
+    artifact_type: 'report',
+    format: 'html',
+  }, {})).bundle.prompt_bullets;
+  const b = (await runPre({
+    artifact_type: 'report',
+    format: 'html',
+  }, {})).bundle.prompt_bullets;
   expect(a).toEqual(b);
 });
 
-test('skill-pre: non-html brief → slop universal bullets only (no html-only extras)', () => {
-  const { bundle } = runPre({ artifact_type: 'report', format: 'svg' }, {});
+test('skill-pre: non-html brief → slop universal bullets only (no html-only extras)', async () => {
+  const { bundle } = await runPre({
+    artifact_type: 'report',
+    format: 'svg',
+  }, {});
   expect(bundle.prompt_bullets.some((b) => /icon/i.test(b))).toBe(false);
   expect(bundle.prompt_bullets.some((b) => /gradient|emoji/i.test(b))).toBe(true); // universal present
 });
