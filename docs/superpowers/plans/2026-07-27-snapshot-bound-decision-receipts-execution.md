@@ -394,6 +394,63 @@ expression was used. Legal similarity or non-infringement is outside scope.
 - The 15 baseline and 15 guided fixed-model behavioral samples remain
   explicitly deferred due quota. No independent behavioral-validation claim
   is made.
+
+## Task 8 Evidence — Full Receipt Feature Audit
+
+- Main-session adversarial plan review: NOT READY. The plan recomputed the
+  audit base as the latest commit touching the plan, which now resolves to
+  Task 7 amendment `2a24451` and excludes Tasks 1–6. It also scheduled branch
+  finishing before the requested higher-level intent-packet and interactive-
+  viewport work.
+- Added a normative amendment fixing the audit base to recorded
+  `implementation_base=a9b509e851725bac2d43651a8f8ca7c4ee16aedc`,
+  defining an honest main-session review fallback while the independent
+  fixed-model reviewer is quota-blocked, and deferring branch handoff until
+  all higher-level tasks are complete.
+- Main-session adversarial plan rereview: READY. The full receipt diff is now
+  in scope, independent/main-session verdicts cannot be conflated, and Task 8
+  completion no longer prematurely terminates the broader user request.
+- Initial fresh Task 8 regression: `npm test`.
+  Golden checks passed; Bun reported 653 pass, 0 fail, 2018 `expect()` calls
+  across 45 files.
+- Hygiene checks used the fixed
+  `implementation_base=a9b509e851725bac2d43651a8f8ca7c4ee16aedc`.
+  Both implementation-base and `origin/main...HEAD` path lists were
+  inspected, all diff checks passed, and `AGENTS.md` remained untracked.
+- Main-session adversarial code review: NOT READY. One Important fail-closed
+  defect remained at `runPost()` entry: `opts.flags || {}` and
+  `opts.deps || {}` silently converted malformed falsey containers to omitted
+  values. Unknown dependency fields were also ignored, and `io:false` was
+  misclassified later as schema input despite the exact dependency surface.
+- Accepted-finding RED:
+  `bun test test/skill-surface.test.mjs --test-name-pattern
+  "falsey post option"`.
+  Result: 0 pass, 1 fail. A normal post completed and the test helper's
+  untyped sentinel error surfaced instead of `ReceiptInputError`.
+- `runPost()` now validates options/flags/dependency containers, defaults only
+  `undefined`, rejects dependency keys outside
+  `io|root|runtime|loadAjv`, and validates the injected reader at entry.
+  Malformed flags remain `POLICY_INPUT_INVALID`; malformed dependency
+  containers/readers use `INSTALLATION_INPUT_INVALID`.
+- Accepted-finding GREEN with the same selection:
+  1 pass, 0 fail, 8 `expect()` calls.
+- Receipt-focused regression after the fix:
+  `bun test test/canonical-json.test.mjs test/skill-snapshot.test.mjs
+  test/skill-receipt-core.test.mjs test/skill-action.test.mjs
+  test/skill-receipt-cli.test.mjs test/skill-surface.test.mjs
+  test/slop-integration.test.mjs test/cli.test.mjs`.
+  Result: 306 pass, 0 fail, 1079 `expect()` calls across 8 files.
+- Second main-session adversarial code review: READY. No remaining Critical or
+  Important defect was found across strict JSON, single-read snapshot reuse,
+  consumed-versus-recorded policy values, pinned v1 validation, precedence,
+  manifests, decision-core projection, action grammar, strict verifier CLI,
+  legacy unbound handling, or agent-facing limitation wording.
+- Independent fixed-model Task 8 code review remains deferred due the
+  external quota. The READY verdict above is main-session only.
+- Final fresh Task 8 regression after the accepted review fix and evidence
+  update: `npm test`.
+  Golden checks passed; Bun reported 654 pass, 0 fail, 2026 `expect()` calls
+  across 45 files.
 - Stored-action inspector RED command:
   `bun test test/skill-action.test.mjs --test-name-pattern
   "stored fix action inspection"`.

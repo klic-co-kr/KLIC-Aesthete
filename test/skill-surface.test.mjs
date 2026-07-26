@@ -434,6 +434,25 @@ describe('single-snapshot resource consumption', () => {
     }
   });
 
+  test('falsey post option containers are rejected instead of defaulted', async () => {
+    await expectReceiptInputError(runPost(fixtureGood, {
+      flags: false,
+      deps: { root: fixtureRoot },
+    }), 'POLICY_INPUT_INVALID');
+    await expectReceiptInputError(runPost(fixtureGood, {
+      flags: {},
+      deps: false,
+    }), 'INSTALLATION_INPUT_INVALID');
+    await expectReceiptInputError(runPost(fixtureGood, {
+      flags: {},
+      deps: { root: fixtureRoot, extra: true },
+    }), 'INSTALLATION_INPUT_INVALID');
+    await expectReceiptInputError(runPost(fixtureGood, {
+      flags: {},
+      deps: { root: fixtureRoot, io: false },
+    }), 'INSTALLATION_INPUT_INVALID');
+  });
+
   test('pass does not read a missing default action contract', async () => {
     const contractPath = path.join(fixtureRoot, 'examples', 'catalog.contract.json');
     fs.unlinkSync(contractPath);
