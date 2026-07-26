@@ -117,6 +117,7 @@ test.each([
   ['PPTX fractional slide', { adapter: 'pptx', slide: 1.5 }],
   ['non-PPTX slide', { adapter: 'svg', slide: 1 }],
   ['empty profile', { profile: '' }],
+  ['flag-shaped profile', { profile: '--strict' }],
   ['non-string profile', { profile: 3 }],
   ['missing contract bytes', { contractBytes: undefined }],
 ])('builder rejects malformed current input: %s', (_name, overrides) => {
@@ -197,6 +198,25 @@ test('parser accepts the exact non-PPTX form with an optional final profile', ()
   });
 });
 
+test('parser accepts canonical Windows locators independently of verifier host OS', () => {
+  expect(parseFixAction([
+    'C:\\Program Files\\Bun\\bun.exe',
+    'C:\\aesthete\\lib\\fix.mjs',
+    'D:\\work\\deck.pptx',
+    '--contract', 'D:\\work\\contract.json',
+    '--domain', 'pptx',
+    '--slide', '2',
+  ])).toEqual({
+    executable: 'C:\\Program Files\\Bun\\bun.exe',
+    scriptPath: 'C:\\aesthete\\lib\\fix.mjs',
+    artifactPath: 'D:\\work\\deck.pptx',
+    contractPath: 'D:\\work\\contract.json',
+    adapter: 'pptx',
+    slide: 2,
+    profile: null,
+  });
+});
+
 function decisionFor(built = buildFixAction(actionFixture)) {
   return {
     decision: 'fix_geometry',
@@ -204,6 +224,41 @@ function decisionFor(built = buildFixAction(actionFixture)) {
     binding: { action_inputs: built.action_inputs },
   };
 }
+
+test('a canonical foreign-platform command is stale rather than internally invalid', () => {
+  const command = [
+    'C:\\Program Files\\Bun\\bun.exe',
+    'C:\\aesthete\\lib\\fix.mjs',
+    'D:\\work\\deck.pptx',
+    '--contract', 'D:\\work\\contract.json',
+    '--domain', 'pptx',
+    '--slide', '2',
+  ];
+  const decision = {
+    decision: 'fix_geometry',
+    next: { action: 'run_fix_p0', fix_cmd: command },
+    binding: {
+      action_inputs: {
+        status: 'bound',
+        runtime_executable_locator_sha256: locatorDigest(command[0]),
+        script_locator_sha256: locatorDigest(command[1]),
+        artifact_locator_sha256: locatorDigest(command[2]),
+        contract_locator_sha256: locatorDigest(command[4]),
+        contract_sha256: sha256Bytes(contractBytes),
+        adapter: 'pptx',
+        slide: 2,
+        profile: null,
+      },
+    },
+  };
+  expect(verifyFixAction(decision, {
+    ...actionFixture,
+    profile: null,
+  })).toEqual({
+    status: 'stale',
+    issues: [{ code: 'ACTION_CHANGED' }],
+  });
+});
 
 test('action verification separates internal invalid from current-input stale', () => {
   const decision = decisionFor();
