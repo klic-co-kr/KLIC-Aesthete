@@ -16,6 +16,7 @@ import {
   resolveEffectiveTokens,
   snapshotArtifact,
   snapshotContract,
+  snapshotIntent,
 } from '../lib/skill-snapshot.mjs';
 import { DEFAULT_TOKENS } from '../lib/tokens.mjs';
 
@@ -440,6 +441,87 @@ test('requested contract rejects duplicate keys with a stable code', () => {
   const duplicatePath = path.join(fixtureRoot, 'duplicate.contract.json');
   fs.writeFileSync(duplicatePath, '{"brief":"","brief":"again"}');
   expectReceiptError(() => snapshotContract(duplicatePath), 'CONTRACT_INPUT_INVALID');
+});
+
+test('intent snapshot returns strict parsed value and raw-byte digest', () => {
+  const intentPath = path.join(fixtureRoot, 'intent.json');
+  const bytes = Buffer.from('{"schema":"aesthete.intent/v1","schema_version":1}\n');
+  fs.writeFileSync(intentPath, bytes);
+  expect(snapshotIntent(intentPath)).toEqual({
+    status: 'bound',
+    bytes,
+    sha256: sha256Bytes(bytes),
+    value: {
+      schema: 'aesthete.intent/v1',
+      schema_version: 1,
+    },
+  });
+});
+
+test('intent snapshot rejects duplicate keys with the stable input code', () => {
+  const intentPath = path.join(fixtureRoot, 'duplicate-intent.json');
+  fs.writeFileSync(intentPath, '{"schema":"a","schema":"b"}');
+  expectReceiptError(
+    () => snapshotIntent(intentPath),
+    'INTENT_INPUT_INVALID',
+  );
+});
+
+test('intent snapshot shares the first operation buffer', () => {
+  const intentPath = path.join(fixtureRoot, 'intent-first.json');
+  const first = Buffer.from('{"value":"first"}');
+  const second = Buffer.from('{"value":"second"}');
+  let reads = 0;
+  const io = createOperationIo({
+    readFile() {
+      reads += 1;
+      return reads === 1 ? first : second;
+    },
+  });
+  const a = snapshotIntent(intentPath, io);
+  const b = snapshotIntent(intentPath, io);
+  expect(reads).toBe(1);
+  expect(a.bytes).toEqual(first);
+  expect(b.bytes).toEqual(first);
+  expect(a.sha256).toBe(sha256Bytes(first));
+});
+
+test('intent snapshot stays bound to first bytes after backing-file mutation', () => {
+  const intentPath = path.join(fixtureRoot, 'intent-mutated.json');
+  const first = Buffer.from('{"value":"first"}');
+  const second = Buffer.from('{"value":"second"}');
+  fs.writeFileSync(intentPath, first);
+  const io = createOperationIo();
+  const before = snapshotIntent(intentPath, io);
+  fs.writeFileSync(intentPath, second);
+  const after = snapshotIntent(intentPath, io);
+  expect(after.bytes).toEqual(first);
+  expect(after.sha256).toBe(before.sha256);
+  expect(after.value).toEqual({ value: 'first' });
+});
+
+test('intent snapshot freshness is raw-byte based', () => {
+  const plainPath = path.join(fixtureRoot, 'intent-plain.json');
+  const spacedPath = path.join(fixtureRoot, 'intent-spaced.json');
+  fs.writeFileSync(plainPath, '{"value":"same"}');
+  fs.writeFileSync(spacedPath, '{"value":"same"}\n');
+  const plain = snapshotIntent(plainPath);
+  const spaced = snapshotIntent(spacedPath);
+  expect(spaced.value).toEqual(plain.value);
+  expect(spaced.sha256).not.toBe(plain.sha256);
+});
+
+test('intent snapshot maps unreadable and lone-surrogate input to one code', () => {
+  expectReceiptError(
+    () => snapshotIntent(path.join(fixtureRoot, 'missing-intent.json')),
+    'INTENT_INPUT_INVALID',
+  );
+  const surrogatePath = path.join(fixtureRoot, 'surrogate-intent.json');
+  fs.writeFileSync(surrogatePath, '{"value":"\\ud800"}');
+  expectReceiptError(
+    () => snapshotIntent(surrogatePath),
+    'INTENT_INPUT_INVALID',
+  );
 });
 
 test('strict validator maps an unavailable AJV loader to a stable code', async () => {

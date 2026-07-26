@@ -84,3 +84,40 @@ was converted to `await`; no external runtime caller exists in this repository.
 - `git diff --check`: pass.
 
 Gate: READY. No production correction was required after the post-review.
+
+## Task 3 — Intent snapshot
+
+### Pre-review
+
+- Intent bytes, parsed value, and digest must come from one operation-cached read.
+- The snapshot helper performs strict JSON parsing but not schema validation.
+- The caller owns schema validation against the captured schema bundle.
+- Every helper failure maps to `INTENT_INPUT_INVALID`.
+- Gate: READY when contract snapshot behavior remains unchanged.
+
+### RED
+
+- `bun test test/skill-snapshot.test.mjs -t "intent snapshot"` failed at
+  module loading because `snapshotIntent` was not exported.
+
+### GREEN
+
+- `bun test test/skill-snapshot.test.mjs`: 49 pass, 0 fail.
+- `bun test test/canonical-json.test.mjs test/skill-surface.test.mjs -t
+  "snapshot|strict"`: 22 pass, 0 fail.
+
+### Post-review
+
+- Exact read-site inspection confirms one `io.readFile()` call inside
+  `snapshotIntent()`.
+- Operation-scoped I/O returned the original bytes after the backing file was
+  mutated.
+- Semantically equal JSON with one trailing newline produced different raw
+  SHA-256 digests.
+- Duplicate keys, unreadable input, and a lone surrogate all map to
+  `INTENT_INPUT_INVALID`.
+- `bun test test/skill-snapshot.test.mjs -t "intent snapshot"`:
+  6 pass, 0 fail.
+- `git diff --check`: pass.
+
+Gate: READY. Contract snapshot behavior remained unchanged.
