@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-ko.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **374 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM 사용법**](./docs/agent-llm-usage.md) · `bun run test` → **passing suite** ✅
 
 ---
 
@@ -58,6 +58,8 @@ bun run test
 # 에이전트 원샷 (권장)
 bun lib/skill-pre.mjs examples/dashboard-brief.json --out-dir /tmp/ae-pre
 bun lib/skill-post.mjs examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json --out-dir /tmp/ae-bad
+bun lib/skill-receipt.mjs verify /tmp/ae-bad/decision.json examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json
+# current만 분기. stale=새 post, unbound|incomplete|invalid=새 post 또는 escalation
 bun lib/skill-gate.mjs examples/catalog-good.layout.json --out-dir /tmp/ae-g
 
 # 전체 규칙: docs/agent-llm-usage.md
@@ -178,7 +180,10 @@ test/            bun:test + golden.mjs (zero-dep)
 |---|---|
 | `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR]` | 사전 → bullets + contract |
 | `bun lib/skill-post.mjs <artifact> [--contract c] [--out-dir DIR]` | 사후 → decision (비파괴) |
+| `bun lib/skill-receipt.mjs verify <decision.json> <artifact> [같은 post 플래그]` | 저장 decision freshness 검증. `current`에서만 분기하며 authenticity/correctness 증명은 아님 |
 | `bun lib/skill-gate.mjs <artifact>` | CI exit |
+
+`pass`는 활성화된 차단 규칙이 발동하지 않았다는 뜻뿐이며 semantic/render/native fidelity나 human approval이 아니다.
 
 플레이북: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md)
 

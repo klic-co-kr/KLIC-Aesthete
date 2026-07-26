@@ -22,8 +22,11 @@ artifact (ALT | svg | pptx | html | …)
    ▼
 aesthete-post ──► decision.json   (artifact NOT mutated)
    │
+   ▼
+receipt verify ──► current only
+   │
    ├─ pass            → stop
-   ├─ fix_geometry    → bun lib/fix.mjs …  then post again
+   ├─ fix_geometry    → execute absolute next.fix_cmd argv unchanged, then post again
    ├─ regenerate      → generator again (max 3) then post
    └─ human           → stop + escalate
 ```
@@ -48,7 +51,15 @@ bun lib/skill-gate.mjs <artifact>   # pass=0, fix|regen=1, human|usage=2
 4. **생성 후** `bun lib/skill-post.mjs <artifact> [--contract DIR/contract.json] --out-dir DIR2`  
 5. `decision`은 **산술 JSON** — LLM이 재해석해 뒤집지 말 것. LLM은 `next.action`만 실행  
 6. `regenerate` 루프 상한 **N=3** 후 `human`  
-7. `fix_geometry` 시 post가 아니라 에이전트가 `fix` 실행 후 **post 재호출**
+7. 저장 decision 사용 전 같은 artifact와 post 평가 플래그로 receipt를 검증하고 `current`에서만 분기
+8. `stale`은 수동 rebinding 없이 새 post, `unbound|incomplete|invalid`는 새 post 또는 escalation
+9. `fix_geometry` 시 에이전트가 저장된 절대 `next.fix_cmd` argv를 flag 재작성 없이 실행 후 **post 재호출**
+
+`pass`는 **활성화된 차단 규칙이 발동하지 않았다**는 뜻뿐이다.
+semantic/render/native fidelity나 human approval이 아니다.
+receipt `current`도 저장 core와 현재 bound 입력·설정·schema·runtime·설치
+파일의 일치일 뿐 authenticity, provenance, 실제 실행 코드 동일성,
+correctness를 증명하지 않는다.
 
 ---
 
@@ -76,7 +87,13 @@ bun lib/skill-post.mjs out.layout.json \
   --contract /tmp/pipe-pre/contract.json \
   --out-dir /tmp/pipe-post
 
-# 4) branch on decision
+# 4) verify stored decision with the same post flags
+bun lib/skill-receipt.mjs verify \
+  /tmp/pipe-post/decision.json out.layout.json \
+  --contract /tmp/pipe-pre/contract.json
+# status: current | stale | unbound | incomplete | invalid
+
+# 5) branch on decision only when receipt status=current
 # jq -r .decision /tmp/pipe-post/decision.json
 ```
 

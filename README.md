@@ -7,7 +7,7 @@
 
 ![Aesthete](./examples/hero-en.png)
 
-[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **374 pass** ✅
+[SKILL.md](./SKILL.md) · [DESIGN.md](./DESIGN.md) · [**LLM playbook**](./docs/agent-llm-usage.md) · `bun run test` → **passing suite** ✅
 
 ---
 
@@ -61,6 +61,10 @@ bun lib/skill-pre.mjs examples/dashboard-brief.json --out-dir /tmp/ae-pre
 
 bun lib/skill-post.mjs examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json --out-dir /tmp/ae-bad
 # decision.json (input NOT mutated)
+
+# Before acting on a stored decision, repeat the same post evaluation flags.
+bun lib/skill-receipt.mjs verify /tmp/ae-bad/decision.json examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json
+# current=branch; stale=fresh post; unbound|incomplete|invalid=fresh post or escalation
 
 bun lib/skill-gate.mjs examples/catalog-good.layout.json --out-dir /tmp/ae-g
 # exit 0 = pass; bad layouts exit 1
@@ -185,9 +189,12 @@ test/            bun:test + golden.mjs (zero-dep)
 |---|---|
 | `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR] [--diversify]` | Pre one-shot → pre.json + contract.json + prompt_bullets.md |
 | `bun lib/skill-post.mjs <artifact> [--contract c] [--structure ID] [--lint] [--vuln-gate] [--out-dir DIR]` | Post one-shot → decision.json (non-destructive). No LLM judging |
+| `bun lib/skill-receipt.mjs verify <decision.json> <artifact> [same post flags]` | Verify stored decision freshness. Only `current` may branch; this is not authenticity or correctness |
 | `bun lib/skill-gate.mjs <artifact> [same flags]` | CI — pass=0; fix_geometry or regenerate=1; human or usage=2 |
 
-package.json scripts: pre / post / gate. Short skills: skills/aesthete-*/SKILL.md. Playbook: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md).
+`pass` means only that no enabled blocking rule triggered; it is not semantic/render/native fidelity or human approval.
+
+package.json scripts: pre / post / receipt / gate. Short skills: skills/aesthete-*/SKILL.md. Playbook: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md).
 
 ### Engine
 
