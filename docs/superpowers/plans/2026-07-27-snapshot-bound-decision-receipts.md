@@ -34,6 +34,7 @@ Stable input/dependency codes used in RED tests and CLI mapping:
 | `INSTALLATION_INPUT_INVALID` | required engine/package manifest capture |
 | `AJV_REQUIRED` | mandatory validator unavailable |
 | `BUN_REQUIRED` | receipt-backed runtime is not Bun |
+| `POLICY_INPUT_INVALID` | malformed profile/structure/artifact-type policy input |
 | `CURRENT_INPUT_INVALID` | malformed current verifier snapshot/comparison input |
 | `ACTION_GRAMMAR_INVALID` | malformed stored or directly parsed fix action command |
 
@@ -1797,9 +1798,129 @@ git commit -m "fix: bind geometry action inputs"
 
 ### Task 5: Single-Snapshot Post and Gate Receipt Emission
 
+#### Task 5 adversarial-plan amendment
+
+This subsection is normative and resolves orchestration ambiguities before
+Task 5 implementation.
+
+`runPost(inputPath, opts)` accepts only this dependency surface:
+
+```js
+opts.deps = {
+  io,          // optional base { readFile(absolutePath) }; wrapped once
+  root,        // optional skill root; default skillRoot()
+  runtime,     // optional process-like runtime; default process
+  loadAjv,     // optional createRunValidator loader seam
+}
+```
+
+The root is lexically normalized once. The runtime supplies both the
+`captureRuntime()` input and the executable locator used by
+`buildFixAction()`; a supplied runtime therefore requires a non-empty
+absolute-normalizable `execPath`, with failures mapped to
+`ReceiptInputError/BUN_REQUIRED`. Unit tests may use these seams, while real
+process tests must run copied entry points and must not inject around the
+public CLI.
+
+Normalize public flags exactly once before snapshots or policy construction.
+An absent slide becomes `undefined`; a supplied CLI string must match
+`/^[1-9][0-9]*$/` and convert to a safe positive integer. Unit callers may
+supply a safe positive integer directly. Every other slide value throws
+`ReceiptInputError/SLIDE_INVALID`. A requested contract must be a non-empty
+string; a missing flag operand or invalid requested-contract locator throws
+`ReceiptInputError/CONTRACT_INPUT_INVALID`. Profile, structure, and artifact
+type use the same string-or-null rules as `normalizePostPolicy()`; profile
+also rejects values beginning with `--` so policy normalization cannot
+accept an input that exact action construction rejects.
+
+The operation order is exact:
+
+```text
+normalize root/runtime/flags and create one operation I/O cache
+capture Bun runtime
+capture all schemas and construct the mandatory run-local validator
+capture installation manifest
+resolve effective params unconditionally
+resolve effective tokens iff lint is enabled
+snapshot, strict-parse, and schema-validate a requested contract
+snapshot the artifact
+import only the captured bytes and schema-validate ALT
+measure/scan/evaluate only captured or injected values
+validate the measured report with the captured validator
+construct one fold-input object and call foldDecision exactly once without fixCmd
+attach claim_scope from that exact fold-input object
+if and only if the folded decision is fix_geometry:
+  reuse the requested contract snapshot, or capture/validate the default action contract
+  build the exact action and assign decision.next.fix_cmd
+build binding after the final next object exists
+strict-validate the complete emitted decision
+```
+
+Params are resolved even for unreadable or readable-invalid artifacts because
+the receipt still records the selected policy. Tokens are resolved and bound
+when lint was requested even if ALT import later fails; with lint disabled,
+the token file is not read and `tokens_sha256` is `null`. Measurement receives
+the exact resolved params object, and lint receives the exact resolved token
+object.
+
+The first fold deliberately has no `fixCmd`; a transient `fix_geometry`
+decision therefore lacks `next.fix_cmd`. Do not fold twice and do not read the
+default action contract speculatively. Only after the branch is known may
+post snapshot the action contract, build the command, and assign
+`decision.next.fix_cmd`; `buildDecisionBinding()` and final strict validation
+run only after that mutation, so `decision_core_sha256` covers the final exact
+command.
+
+Requested contracts are strict-parsed and schema-validated at their boundary;
+all read, parse, and schema failures map to
+`ReceiptInputError/CONTRACT_INPUT_INVALID`. If the same requested snapshot is
+needed by a fix action, reuse that snapshot object without another read or
+parse. The default action contract is read only for `fix_geometry`; its read,
+strict-parse, or schema failure is rethrown as
+`ReceiptInputError/ACTION_CONTRACT_INVALID`. The decision binding's
+`contract` member describes only the requested evaluation contract, while
+`action_inputs.contract_sha256` describes the requested-or-default action
+contract actually named by `fix_cmd`.
+
+For native ALT input, use `parseJsonStrict(artifactSnapshot.bytes, 'artifact')`
+so duplicate-key or non-I-JSON content becomes a readable import failure with
+a complete artifact binding. Other adapters use `importBuffer()` with the
+captured bytes and effective slide. Only artifact read/import/ALT-schema
+failures enter the existing `IMPORT_FAIL` fold; dependency, contract, policy,
+report-schema, binding, and final-decision validation failures emit no
+decision. Internal construction/validation defects remain ordinary errors
+and map to exit `1`, never to a fabricated input code.
+
+`receiptInputExitCode(error)` returns `2` only for `ReceiptInputError` and `1`
+otherwise. Both CLI entry points catch before writing any result file, print
+exactly `${error.code}: ${error.message}` for typed errors, keep stdout empty,
+and use this mapper. Post retains its existing successful-evaluation exit
+behavior, including exit `1` for an emitted `IMPORT_FAIL`; gate retains the
+decision exit fold. Gate must also preserve output parity by writing a
+returned slop report when present.
+
+Real process fixtures live outside the repository ancestry so an
+AJV-unavailable case cannot accidentally resolve the real repository's
+`node_modules`. Copy only the repository material required by the entry
+points, use a `node_modules` link only in cases that require installed AJV,
+and mutate only the copy. Each process row supplies a unique absolute output
+directory and asserts no report, decision, slop, contract, structure, vuln,
+or requested output file exists after a typed failure. A created empty output
+directory is permitted.
+
+Add RED coverage for the exact operation order and seams: unreadable artifact
+still binds params and lint-enabled tokens; lint-disabled execution does not
+read tokens; `fix_geometry` assigns the action before hashing the decision
+core; a pass does not read a missing default action contract; requested
+contract reuse has one base read; requested/default contract schema failures
+use their distinct stable codes; valid canonical CLI slide strings reach the
+effective PPTX slide; noncanonical strings fail; and profile values beginning
+with `--` fail at policy input normalization.
+
 **Files:**
 - Modify: `lib/skill-post.mjs`
 - Modify: `lib/skill-gate.mjs`
+- Modify: `lib/skill-snapshot.mjs`
 - Modify: `lib/measure.mjs`
 - Modify: `lib/skills/proximity.mjs`
 - Modify: `lib/tokens.mjs`
@@ -1833,7 +1954,7 @@ test('post: bad geometry keeps fix_geometry and emits a bound absolute action', 
   expect(decision.decision).toBe('fix_geometry');
   expect(decision.binding.action_inputs.status).toBe('bound');
   expect(parseFixAction(decision.next.fix_cmd)).toEqual({
-    executablePath: process.execPath,
+    executable: process.execPath,
     scriptPath: path.join(root, 'lib', 'fix.mjs'),
     artifactPath: path.resolve(badPath),
     contractPath: path.join(root, 'examples', 'catalog.contract.json'),
