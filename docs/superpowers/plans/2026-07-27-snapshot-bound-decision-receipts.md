@@ -35,6 +35,7 @@ Stable input/dependency codes used in RED tests and CLI mapping:
 | `AJV_REQUIRED` | mandatory validator unavailable |
 | `BUN_REQUIRED` | receipt-backed runtime is not Bun |
 | `CURRENT_INPUT_INVALID` | malformed current verifier snapshot/comparison input |
+| `ACTION_GRAMMAR_INVALID` | malformed stored or directly parsed fix action command |
 
 All map to exit `2` at receipt-backed CLI boundaries and create no decision
 or verification output.
@@ -1547,7 +1548,60 @@ git commit -m "feat: add decision receipt model"
 
 **Interfaces:**
 - Consumes: normalized artifact/contract snapshots, runtime, effective adapter/slide/profile.
-- Produces: `buildFixAction(input) -> { command, action_inputs }`, `parseFixAction(command)`, `verifyFixAction(decision, current)`.
+- Produces: `buildFixAction(input) -> { command, action_inputs }`, `parseFixAction(command)`, `verifyFixAction(decision, current)`, `ActionParseError`.
+
+#### Task 4 adversarial-plan amendment
+
+This subsection is normative. `ActionParseError` always has stable code
+`ACTION_GRAMMAR_INVALID`; every parser grammar failure uses that class.
+Malformed `buildFixAction()` or `verifyFixAction()` current input throws the
+existing `ReceiptCurrentInputError/CURRENT_INPUT_INVALID`. A malformed stored
+command never escapes as an input exception from verification: it becomes
+`{ status: 'invalid', issues: [{ code: 'ACTION_INTERNAL_MISMATCH' }] }`.
+
+The command grammar is positional and order-exact:
+
+```text
+absolute-normalized-executable
+absolute-normalized-skill-root/lib/fix.mjs
+absolute-normalized-artifact
+--contract absolute-normalized-contract
+--domain supported-adapter
+[--slide positive-base10-integer]
+[--profile non-empty-string]
+```
+
+`--slide` is mandatory for `pptx` (including effective default slide `1`) and
+forbidden for every other adapter. `--profile`, when present, is last.
+Reordered flags, alternate numeric spellings, duplicate flags, empty values,
+unknown flags, or extra operands are grammar errors. The canonical positive
+integer spelling is `/^[1-9][0-9]*$/`; `01`, `+1`, `1.0`, exponent notation,
+zero, and fractions are rejected.
+
+`buildFixAction()` lexically normalizes all four locators with
+`path.resolve()`, requires a supported adapter, requires a positive integer
+slide exactly for PPTX and `null` otherwise, and requires profile to be
+`null` or a non-empty string. It emits the exact command above and an exact
+full `action_inputs.status === 'bound'` object. Locator digests hash the UTF-8
+bytes of the emitted normalized strings; `contract_sha256` hashes the
+supplied action-contract bytes.
+
+`verifyFixAction()` first requires a `fix_geometry/run_fix_p0` decision and a
+full bound `action_inputs` object. It parses `next.fix_cmd`, rebuilds the
+locator/option projection from the parsed command, and compares every
+command-derived field to the stored action input. `contract_sha256` has no
+command operand from which it can be recomputed; its stored shape is already
+checked by the Task 3 pinned validator. Verification then builds the full
+current action from the supplied current contract bytes and compares every
+stored field, including `contract_sha256`. Internal mismatch wins over stale;
+each selected result contains exactly one stable action issue.
+
+Add RED cases for exact output keys, input immutability, lexical
+normalization, every supported adapter, PPTX default/explicit slide,
+non-PPTX slide rejection, every noncanonical slide spelling, all missing,
+duplicate, reordered, and extra tokens, stored content-digest shape,
+malformed current input, simultaneous internal/current mismatch precedence,
+and changes to each current locator/option/content field.
 
 - [ ] **Step 1: Write failing exact-command and CWD-independence tests**
 
