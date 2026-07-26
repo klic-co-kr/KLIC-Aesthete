@@ -105,6 +105,20 @@ test('JCS: hostile object descriptors cannot be omitted or evaluated twice', () 
   const extraArrayProperty = [1];
   extraArrayProperty.extra = 2;
   expect(() => canonicalizeJson(extraArrayProperty)).toThrow(/array property/i);
+
+  let lengthReads = 0;
+  const proxiedArray = new Proxy([1], {
+    get(target, key, receiver) {
+      if (key === 'length') {
+        lengthReads += 1;
+        return lengthReads === 1 ? 1 : 0;
+      }
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  expect(canonicalizeJson(proxiedArray)).toBe('[1]');
+  expect(lengthReads).toBe(0);
+
   expect(() => canonicalizeJson(new Date(0))).toThrow(/non-plain/i);
 });
 
