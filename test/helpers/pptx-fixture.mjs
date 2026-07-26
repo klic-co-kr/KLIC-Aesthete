@@ -21,7 +21,7 @@ function slideXml(shapes) {
 </p:sld>`;
 }
 
-export function makeTwoSlideDeck() {
+export function makeTwoSlideDeck({ fixable = false } = {}) {
   const contentTypes = `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -46,16 +46,26 @@ export function makeTwoSlideDeck() {
     { name: 'ppt/_rels/presentation.xml.rels', data: presentationRels },
     {
       name: 'ppt/slides/slide1.xml',
-      data: slideXml([
-        shapeXml(2, 'SLIDE_ONE_ONLY', 80, 80, 300, 80),
-      ]),
+      data: slideXml(fixable
+        ? [
+          shapeXml(2, 'SLIDE_ONE_A', 80, 80, 300, 80),
+          shapeXml(3, 'SLIDE_ONE_B', 120, 100, 300, 80),
+        ]
+        : [
+          shapeXml(2, 'SLIDE_ONE_ONLY', 80, 80, 300, 80),
+        ]),
     },
     {
       name: 'ppt/slides/slide2.xml',
-      data: slideXml([
-        shapeXml(2, 'SLIDE_TWO_A', 80, 80, 300, 80),
-        shapeXml(3, 'SLIDE_TWO_B', 520, 320, 300, 80),
-      ]),
+      data: slideXml(fixable
+        ? [
+          shapeXml(2, 'SLIDE_TWO_A', 500, 260, 300, 80),
+          shapeXml(3, 'SLIDE_TWO_B', 540, 280, 300, 80),
+        ]
+        : [
+          shapeXml(2, 'SLIDE_TWO_A', 80, 80, 300, 80),
+          shapeXml(3, 'SLIDE_TWO_B', 520, 320, 300, 80),
+        ]),
     },
   ]);
 }

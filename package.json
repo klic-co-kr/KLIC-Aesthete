@@ -18,7 +18,8 @@
     "emit": "bun lib/emit.mjs",
     "pre": "bun lib/skill-pre.mjs",
     "post": "bun lib/skill-post.mjs",
-    "gate": "bun lib/skill-gate.mjs"
+    "gate": "bun lib/skill-gate.mjs",
+    "receipt": "bun lib/skill-receipt.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1",

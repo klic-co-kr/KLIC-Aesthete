@@ -5,6 +5,7 @@ import { ReceiptCurrentInputError } from '../lib/skill-receipt-core.mjs';
 import {
   ActionParseError,
   buildFixAction,
+  inspectStoredFixAction,
   parseFixAction,
   verifyFixAction,
 } from '../lib/skill-action.mjs';
@@ -224,6 +225,19 @@ function decisionFor(built = buildFixAction(actionFixture)) {
     binding: { action_inputs: built.action_inputs },
   };
 }
+
+test('stored fix action inspection requires no current input', () => {
+  expect(inspectStoredFixAction(decisionFor())).toEqual({
+    status: 'valid',
+    issues: [],
+  });
+  const malformed = decisionFor();
+  malformed.next.fix_cmd[2] = '/work/other.pptx';
+  expect(inspectStoredFixAction(malformed)).toEqual({
+    status: 'invalid',
+    issues: [{ code: 'ACTION_INTERNAL_MISMATCH' }],
+  });
+});
 
 test('a canonical foreign-platform command is stale rather than internally invalid', () => {
   const command = [
