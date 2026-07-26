@@ -2733,6 +2733,33 @@ git commit -m "docs: teach receipt freshness boundaries"
 
 ### Task 8: Full Verification and Task 1 Adversarial Code Review
 
+#### Task 8 adversarial-plan amendment
+
+This subsection is normative.
+
+The audit base is the immutable `implementation_base` recorded in the
+execution notes:
+
+```text
+a9b509e851725bac2d43651a8f8ca7c4ee16aedc
+```
+
+Do not recompute it as the latest commit touching this plan. Later normative
+plan amendments intentionally touch the same file, so that query would omit
+Tasks 1–6 from the audit diff.
+
+If the prescribed fixed-model reviewer is unavailable due the already
+recorded quota condition, perform the complete checklist as a main-session
+adversarial review, reproduce every accepted finding with a RED test, and
+report its verdict specifically as a main-session verdict. Keep the
+independent fixed-model code review deferred; never relabel the main-session
+review as independent.
+
+This feature branch also carries higher-level intent-packet and interactive-
+viewport tasks after receipt work. Therefore complete Steps 1–8 here, but
+defer Step 9 branch finishing/handoff until those tasks and the final
+cross-feature verification are complete.
+
 **Files:**
 - Modify only files implicated by fresh failures or accepted review findings.
 - Never add `AGENTS.md`.
