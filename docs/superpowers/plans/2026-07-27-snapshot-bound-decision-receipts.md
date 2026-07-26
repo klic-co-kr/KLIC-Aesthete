@@ -34,6 +34,7 @@ Stable input/dependency codes used in RED tests and CLI mapping:
 | `INSTALLATION_INPUT_INVALID` | required engine/package manifest capture |
 | `AJV_REQUIRED` | mandatory validator unavailable |
 | `BUN_REQUIRED` | receipt-backed runtime is not Bun |
+| `CURRENT_INPUT_INVALID` | malformed current verifier snapshot/comparison input |
 
 All map to exit `2` at receipt-backed CLI boundaries and create no decision
 or verification output.
@@ -749,7 +750,158 @@ git commit -m "feat: snapshot receipt evaluation resources"
 
 **Interfaces:**
 - Consumes: canonical SHA helpers and serializable snapshots.
-- Produces: `buildClaimScope(foldInput)`, `decisionCore(decision)`, `buildDecisionBinding(input)`, `validateReceiptV1Shape(decision)`, `verifyDecisionBinding(decision, current)`.
+- Produces: `buildClaimScope(foldInput)`, `decisionCore(decision)`, `buildDecisionBinding(input)`, `validateReceiptV1Shape(decision)`, `verifyDecisionBinding(decision, current)`, `ReceiptCurrentInputError`.
+
+#### Task 3 adversarial-plan amendment
+
+This subsection is normative and resolves the shorthand in the steps below.
+
+`buildClaimScope()` uses these exact formulas. Orchestration passes
+`vulnRequested` and `slopRequested`; the older fixture-only `wantSlop` name
+is not an API alias.
+
+| Rule | `requested` | `executed` |
+|---|---|---|
+| `artifact_import` | always `true` | always `true` (success or captured failure reaches the fold) |
+| `alt_hard_integrity` | always `true` | `Boolean(report) && !importError` |
+| `coverage` | always `true` | `Boolean(report)` |
+| `structure_signature` | `Boolean(structureRequested)` | `Boolean(structureRequested && structureResult != null)` |
+| `token_policy` | `Boolean(lintRequested)` | `Boolean(lintRequested && lintResult != null)` |
+| `known_bad_signatures` | `Boolean(vulnRequested)` | `vulnReport != null` |
+| `html_pattern_scan` | `Boolean(slopRequested)` | `slopReport != null` |
+| `contract_criteria` | `Boolean(contractRequested)` | `Boolean(contractRequested && contractEval != null)` |
+
+These formulas report contradictory direct-call fixtures rather than
+rejecting them; they mirror what actually reached `foldDecision()`.
+Add matrix tests for requested-without-result, result-without-request,
+import-error with downstream values, and no report. Task 5 must pass the two
+normalized requested flags in the one fold-input object.
+
+`decisionCore()` is the exact seven-field projection shown below. Parameterize
+tests so changes to each of `decision`, `reasons`, `scores`, `next`, and
+`claim_scope` change its digest, while `paths`, `binding`, and unrelated
+legacy outer properties do not.
+
+`buildDecisionBinding(input)` returns exactly:
+
+```js
+({
+  schema: 'aesthete.binding/v1',
+  algorithm: 'sha256',
+  integrity: 'content_freshness_and_internal_consistency_not_authenticity',
+  completeness,
+  artifact: normalizedArtifact,
+  contract: structuredClone(contract),
+  action_inputs: normalizedActionInputs,
+  policy: structuredClone(policy),
+  policy_sha256: sha256Json(policy),
+  decision_core_sha256: sha256Json(decisionCore(decision)),
+})
+```
+
+`completeness` is a mandatory builder input. For `complete`,
+`artifact_sha256` is mandatory lowercase hex, an `artifact` override is
+forbidden, and the builder emits
+`{ status: 'bound', sha256: artifact_sha256 }`. For `incomplete`,
+`artifact_sha256` must be exactly `null`, `artifact` must be exactly
+`{ status: 'unreadable', sha256: null }`, and the builder emits that object
+unchanged. Missing, unsupported, or conflicting completeness/artifact inputs
+are builder errors. Add literal RED cases for both valid modes and every
+missing/conflicting combination.
+
+A shorthand `{ status: 'not_required' }` action input is expanded by the
+builder to the full nullable action shape. The verifier itself accepts only
+the full pinned shape.
+
+The code-pinned v1 validator, independently of the mutable schema, enforces
+this matrix before incomplete or stale checks:
+
+- base `schema` is exactly `aesthete.decision/v1`, `schema_version` exactly
+  `1`, required base types match the current v1 schema, and the four
+  decisions map exactly to `rewrite_generator`, `run_fix_p0`, `stop`, and
+  `ask_human`;
+- only `fix_geometry` may contain `next.fix_cmd`; for it, `fix_cmd` is a
+  non-empty string array and `action_inputs.status` is `bound`; all other
+  decisions forbid `fix_cmd` and require `not_required`;
+- `complete` pairs only with artifact `bound` plus a lowercase digest;
+  `incomplete` pairs only with `unreadable` plus `null`;
+- contract `bound` pairs with a lowercase digest and `not_requested` pairs
+  with `null`;
+- `not_required` action inputs contain every defined subordinate field and
+  every one is `null`; `bound` contains lowercase locator/content digests,
+  a supported adapter, a positive PPTX slide or `null` otherwise, and a
+  string-or-null profile;
+- claim scope has the exact schema, `pass_means`, eight rule keys, rule
+  fields/vocabulary, and `does_not_establish` values in their specified
+  order; binding, policy, runtime, manifest, entry, adapter, validation,
+  artifact, contract, and action descendants have no unknown properties;
+- policy fields have their exact boolean/string/null types and adapter/slide
+  relationship. `profile`, `structure`, and `artifact_type` are either
+  `null` or non-empty strings. `resources.tokens_sha256` is a lowercase
+  digest exactly when `lint === true` and is `null` exactly when
+  `lint === false`. `validation.mode` is exactly `ajv`, its version is a
+  non-empty string, `runtime.engine` is exactly `bun`, and every runtime
+  identity string is non-empty. Its schema and installation manifests have
+  exact entry shapes, lowercase digests, strict raw lexicographic path order,
+  uniqueness, the correct namespace allowlist, no
+  absolute/backslash/empty/`.`/`..` segments, and
+  `manifest.sha256 === sha256Json(manifest.files)`;
+- any stored manifest structural, namespace, order, entry-digest, or
+  aggregate-digest failure uses the existing `MANIFEST_PATH_INVALID` issue
+  code. It is selected before incomplete/stale even if an attacker recomputes
+  `policy_sha256`;
+- stored `policy_sha256` and `decision_core_sha256` are recomputed after
+  pinned structural validation. Action/decision or action-null-field
+  incoherence uses `ACTION_INTERNAL_MISMATCH`.
+
+Add literal RED cases for every row above, all four decision/action mappings,
+each core-inclusion/exclusion field, unsorted/duplicate/wrong-namespace/
+backslash/empty-segment/aggregate-mismatch manifests, and an aggregate
+mismatch whose outer policy digest was recomputed.
+
+Current comparison input is a separate trusted-boundary contract, not part of
+the stored receipt. Export `ReceiptCurrentInputError` with stable code
+`CURRENT_INPUT_INVALID`. Before stale comparison:
+
+- require a lowercase `artifact_sha256`, exact current contract/action/policy
+  shapes, and exact `schemaComparison`/`installationComparison` objects;
+- each comparison is exactly `{ matches, changes }`, `matches` equals
+  `changes.length === 0`, and each change is an exact
+  `{ code, relative_path }` with an allowed manifest code and kind-specific
+  normalized path;
+- require raw `(relative_path, code)` order and require `relative_path`
+  itself to be unique within each comparison. A second entry for the same
+  path is invalid even when its code differs. Contradictory `matches`,
+  unknown/duplicate-path/unsorted changes, or malformed current values throw
+  `ReceiptCurrentInputError` rather than marking the stored receipt invalid
+  or silently skipping a check;
+- merge both comparison arrays without loss. Stale issues sort first by the
+  published class-local code order, then `manifest_kind` (`schemas` before
+  `installation`), then raw `relative_path`.
+
+For `invalid`, `unbound`, and `incomplete`, `checked` is exactly `[]`.
+For an internally valid complete receipt, run every applicable comparison
+even after the first mismatch and return the full six-item `ALL_CHECKED`
+array. `not_requested` contract status and null digest are still two completed
+checks; `not_required` action inputs are still one completed check. Missing
+or malformed current data throws `ReceiptCurrentInputError`.
+
+Add parameterized stale tests for artifact, contract status/digest, action,
+each policy component, schema comparison, installation comparison, and a
+simultaneous-mismatch case. Add hostile comparison tests covering
+contradictory `matches`, unknown/duplicate-path/unsorted changes (including
+two different codes for one path), invalid paths, and two-kind merge
+ordering.
+
+The same policy matrix—non-empty optional strings, adapter/slide coupling,
+lint/tokens digest coupling, `validation.mode === 'ajv'`, Bun runtime, strict
+manifests, and exact nested fields—applies without divergence to stored
+pinned validation, current-input validation, and the mutable decision schema.
+Add a parameterized parity corpus that presents every valid/invalid policy
+fixture to all three validators and asserts the same accept/reject result.
+Mutable-schema integration must also include one positive paired receipt plus
+negative nested-unknown, digest, manifest, completeness, contract, and
+action/decision cross-field cases; legacy unbound remains valid.
 
 - [ ] **Step 1: Write failing claim-scope tests against literal fold fixtures**
 
@@ -783,7 +935,11 @@ test('claim scope describes the exclusive slop fold in branch order', () => {
       { id: 'slop.copy.generic', tier: 'P2', title: 'generic copy' },
     ],
   };
-  const scope = buildClaimScope({ wantSlop: true, slopGate: true, slopReport: mixedSlop });
+  const scope = buildClaimScope({
+    slopRequested: true,
+    slopGate: true,
+    slopReport: mixedSlop,
+  });
   expect(scope.rules.html_pattern_scan.blocking_conditions).toEqual([
     'branch_1_when_html_measured_and_p0_exists_regenerate',
     'branch_2_else_when_html_measured_and_gate_enabled_and_p1_exists_regenerate',
@@ -912,7 +1068,12 @@ const claimCases = [
   {
     name: 'known bad ungated',
     rule: 'known_bad_signatures',
-    input: { report: passReport, vulnReport: highVuln, vulnGate: false },
+    input: {
+      report: passReport,
+      vulnRequested: true,
+      vulnReport: highVuln,
+      vulnGate: false,
+    },
     decision: 'pass',
     expected: {
       requested: true,
@@ -925,7 +1086,12 @@ const claimCases = [
   {
     name: 'known bad gated',
     rule: 'known_bad_signatures',
-    input: { report: passReport, vulnReport: highVuln, vulnGate: true },
+    input: {
+      report: passReport,
+      vulnRequested: true,
+      vulnReport: highVuln,
+      vulnGate: true,
+    },
     decision: 'regenerate',
     expected: {
       requested: true,
@@ -996,14 +1162,14 @@ const slopRule = {
 };
 const slopCases = [
   ['P0', {
-    wantSlop: true,
+    slopRequested: true,
     slopReport: {
       summary: { coverage: { html: 'measured' }, unmeasured: [] },
       findings: [{ id: 'slop.palette.gradient', tier: 'P0', title: 'gradient' }],
     },
   }, 'regenerate'],
   ['P1 gated', {
-    wantSlop: true,
+    slopRequested: true,
     slopGate: true,
     slopReport: {
       summary: { coverage: { html: 'measured' }, unmeasured: [] },
@@ -1011,7 +1177,7 @@ const slopCases = [
     },
   }, 'regenerate'],
   ['P1 ungated', {
-    wantSlop: true,
+    slopRequested: true,
     slopGate: false,
     slopReport: {
       summary: { coverage: { html: 'measured' }, unmeasured: [] },
@@ -1019,7 +1185,7 @@ const slopCases = [
     },
   }, 'pass'],
   ['P0 unmeasured', {
-    wantSlop: true,
+    slopRequested: true,
     slopReport: {
       summary: {
         coverage: { html: 'measured' },
@@ -1029,14 +1195,14 @@ const slopCases = [
     },
   }, 'human'],
   ['P2 only', {
-    wantSlop: true,
+    slopRequested: true,
     slopReport: {
       summary: { coverage: { html: 'measured' }, unmeasured: [] },
       findings: [{ id: 'slop.copy.generic', tier: 'P2', title: 'generic' }],
     },
   }, 'pass'],
   ['non-HTML unmeasurable', {
-    wantSlop: true,
+    slopRequested: true,
     slopReport: {
       summary: { coverage: { html: 'unmeasurable' }, unmeasured: [] },
       findings: [],
@@ -1110,10 +1276,21 @@ const legacyDecision = {
   next: { action: 'stop', loop_hint_max: 2 },
 };
 const claim = buildClaimScope({});
+const notRequiredAction = {
+  status: 'not_required',
+  runtime_executable_locator_sha256: null,
+  script_locator_sha256: null,
+  artifact_locator_sha256: null,
+  contract_locator_sha256: null,
+  contract_sha256: null,
+  adapter: null,
+  slide: null,
+  profile: null,
+};
 const current = {
   artifact_sha256: 'a'.repeat(64),
   contract: { status: 'not_requested', sha256: null },
-  action_inputs: { status: 'not_required' },
+  action_inputs: notRequiredAction,
   policy: literalPolicyFixture(),
   schemaComparison: { matches: true, changes: [] },
   installationComparison: { matches: true, changes: [] },
@@ -1124,12 +1301,18 @@ const receiptDecision = (overrides = {}, bindingOverrides = {}) => {
     claim_scope: structuredClone(claim),
     ...overrides,
   };
-  decision.binding = buildDecisionBinding({ decision, ...current, ...bindingOverrides });
+  decision.binding = buildDecisionBinding({
+    decision,
+    completeness: 'complete',
+    ...current,
+    ...bindingOverrides,
+  });
   return decision;
 };
 const boundDecision = receiptDecision();
 const incompleteDecision = receiptDecision({}, {
   completeness: 'incomplete',
+  artifact_sha256: null,
   artifact: { status: 'unreadable', sha256: null },
 });
 const ALL_CHECKED = [
@@ -1222,7 +1405,11 @@ test('unrecomputed core edit is invalid while full public rebinding can be curre
   edited.decision = 'human';
   edited.next.action = 'ask_human';
   expect(verifyDecisionBinding(edited, current).status).toBe('invalid');
-  edited.binding = buildDecisionBinding({ decision: edited, ...current });
+  edited.binding = buildDecisionBinding({
+    decision: edited,
+    completeness: 'complete',
+    ...current,
+  });
   expect(verifyDecisionBinding(edited, current).status).toBe('current');
 });
 
