@@ -2278,7 +2278,10 @@ and normally produce policy plus manifest issues; missing/unreadable required
 package or lock files remain `INSTALLATION_INPUT_INVALID`.
 
 Current `action_inputs` is the exact builder output for fix decisions and the
-minimal `{ status: 'not_required' }` input for all other decisions.
+full exact nine-field `not_required` shape with all other fields `null` for
+all other decisions. The minimal `{ status: 'not_required' }` form is only a
+`buildDecisionBinding()` emission convenience; `verifyDecisionBinding()`
+requires the expanded current-comparison shape.
 `buildDecisionBinding()` is not called by the verifier. `verifyFixAction()`
 may be asserted as a parity check in tests, but
 `verifyDecisionBinding(decision, current)` is the single status/issue fold.
