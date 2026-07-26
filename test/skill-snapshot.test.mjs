@@ -10,6 +10,7 @@ import {
   captureInstallationManifest,
   captureRuntime,
   compareCurrentManifest,
+  createOperationIo,
   normalizePostPolicy,
   resolveEffectiveParams,
   resolveEffectiveTokens,
@@ -143,6 +144,54 @@ test('stored manifest traversal is invalid rather than readable', () => {
     .toThrow(/invalid manifest path/i);
 });
 
+test('stored manifest aggregate digest must match its file entries', () => {
+  const stored = captureInstallationManifest(fixtureRoot);
+  stored.sha256 = stored.sha256 === '0'.repeat(64) ? '1'.repeat(64) : '0'.repeat(64);
+  expect(() => compareCurrentManifest(stored, fixtureRoot, 'installation'))
+    .toThrow(/manifest aggregate digest/i);
+});
+
+test.each([
+  ['installation', 'lib', 'external-lib', captureInstallationManifest, 'INSTALLATION_INPUT_INVALID'],
+  ['schemas', 'schemas', 'external-schemas', captureSchemaBundle, 'SCHEMA_INPUT_INVALID'],
+])(
+  '%s emission rejects a symlinked namespace root',
+  (_kind, namespace, external, capture, code) => {
+    const externalPath = path.join(fixtureRoot, external);
+    fs.mkdirSync(externalPath);
+    fs.rmSync(path.join(fixtureRoot, namespace), { recursive: true });
+    fs.symlinkSync(externalPath, path.join(fixtureRoot, namespace), 'dir');
+    expectReceiptError(() => capture(fixtureRoot), code);
+  },
+);
+
+test.each([
+  ['installation', 'lib', 'external-lib'],
+  ['schemas', 'schemas', 'external-schemas'],
+])(
+  '%s verification rejects a symlinked namespace root',
+  (kind, namespace, external) => {
+    const stored = kind === 'installation'
+      ? captureInstallationManifest(fixtureRoot)
+      : captureSchemaBundle(fixtureRoot).manifest;
+    const externalPath = path.join(fixtureRoot, external);
+    fs.mkdirSync(externalPath);
+    fs.rmSync(path.join(fixtureRoot, namespace), { recursive: true });
+    fs.symlinkSync(externalPath, path.join(fixtureRoot, namespace), 'dir');
+    expect(() => compareCurrentManifest(stored, fixtureRoot, kind)).toThrow(/symlink/i);
+  },
+);
+
+test('verification rejects a required package-file symlink rather than reporting it missing', () => {
+  const stored = captureInstallationManifest(fixtureRoot);
+  const target = path.join(fixtureRoot, 'bun-target.lock');
+  fs.writeFileSync(target, '{}');
+  fs.unlinkSync(path.join(fixtureRoot, 'bun.lock'));
+  fs.symlinkSync(target, path.join(fixtureRoot, 'bun.lock'), 'file');
+  expect(() => compareCurrentManifest(stored, fixtureRoot, 'installation'))
+    .toThrow(/symlink/i);
+});
+
 test('runtime snapshot records Bun, process versions, platform, arch, and locale', () => {
   const runtime = captureRuntime();
   expect(runtime.engine).toBe('bun');
@@ -257,6 +306,24 @@ test('artifact and requested contract snapshot each call the supplied reader onc
   expect(counts.get(contractPath)).toBe(1);
 });
 
+test('operation I/O reuses one immutable-by-convention buffer for normalized path aliases', () => {
+  let reads = 0;
+  const operationIo = createOperationIo({
+    readFile(filePath) {
+      reads += 1;
+      return fs.readFileSync(filePath);
+    },
+  });
+  const direct = path.join(fixtureRoot, 'package.json');
+  const alias = path.join(fixtureRoot, '.', 'package.json');
+  const first = operationIo.readFile(direct);
+  fs.writeFileSync(direct, '{"changed":true}');
+  const second = operationIo.readFile(alias);
+  expect(reads).toBe(1);
+  expect(second).toBe(first);
+  expect(second.toString()).toBe('{}');
+});
+
 test('schema capture reads every schema once and validator identity is bound', async () => {
   const reads = countedReader(repoRoot);
   const bundle = captureSchemaBundle(repoRoot, reads);
@@ -285,10 +352,29 @@ test.each([
   ['lint', { lint: true }],
   ['vuln gate', { vulnGate: true }],
   ['slop gate', { slopGate: true }],
+  ['slop autofix', { slopAutofix: true }],
   ['human on unfixable', { humanOnUnfixable: true }],
 ])('policy normalization records %s', (_name, change) => {
   expect(normalizePostPolicy({ ...literalPolicyInputs(), ...change }))
     .not.toEqual(normalizePostPolicy(literalPolicyInputs()));
+});
+
+test.each([
+  ['unsupported adapter', { adapter: 'unsupported-domain' }, 'DOMAIN_INVALID'],
+  ['zero PPTX slide', { adapter: 'pptx', slide: 0 }, 'SLIDE_INVALID'],
+  ['fractional PPTX slide', { adapter: 'pptx', slide: 1.5 }, 'SLIDE_INVALID'],
+  ['non-string profile', { profile: false }, 'POLICY_INPUT_INVALID'],
+  ['non-string artifact type', { type: 1 }, 'POLICY_INPUT_INVALID'],
+])('policy normalization rejects %s', (_name, change, code) => {
+  expectReceiptError(
+    () => normalizePostPolicy({ ...literalPolicyInputs(), ...change }),
+    code,
+  );
+});
+
+test('policy normalization maps an empty optional string to null', () => {
+  expect(normalizePostPolicy({ ...literalPolicyInputs(), structure: '' }).structure)
+    .toBeNull();
 });
 
 test('artifact snapshot normalizes adapter and effective slide semantics', () => {
