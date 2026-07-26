@@ -2560,6 +2560,33 @@ git commit -m "feat: verify decision receipt freshness"
 
 ### Task 7: Skill and Integration Documentation with Behavioral RED/GREEN
 
+#### Task 7 quota-contingency amendment
+
+This subsection is normative when the fixed-model worker reports quota
+exhaustion. Do not substitute a native worker, change the requested model, or
+claim that a static check proves model behavior.
+
+Before editing, inspect each of `SKILL.md`,
+`skills/aesthete-post/SKILL.md`, and
+`skills/aesthete-gate/SKILL.md` as an isolated instruction surface. Record a
+deterministic RED for these three independently necessary retrieval elements:
+the exact `bun lib/skill-receipt.mjs verify` command, all five verifier
+statuses, and the narrow definition of `pass`. Manually record any text that
+branches on a stored decision without verification or overstates `pass`.
+Because adding missing literal guidance is mechanically justified even
+without an LLM sample, proceed with the minimal Step 3 changes.
+
+After editing, manually read every changed document as one workflow and run
+the documented pre/post/receipt/gate commands against temporary artifacts.
+The three skill surfaces must each contain the exact command, all five
+statuses, the stored-decision branch rule, and the narrow `pass` boundary.
+This is documentation and executable-contract verification only. Keep all 15
+baseline and 15 guided fixed-model samples explicitly deferred, with no
+invented output paths or scores, and repeat them when quota becomes
+available. Their absence prevents a claim of independent behavioral
+validation but does not erase a deterministic missing-guidance RED or block
+the remaining implementation and regression work.
+
 **Files:**
 - Modify: `SKILL.md`
 - Modify: `skills/aesthete-post/SKILL.md`
