@@ -12,6 +12,8 @@ import { spawnSync } from 'node:child_process';
 import { foldDecision, stableDecision, decisionExitCode, isPhysicallyInfeasible, p0Fixable } from '../lib/skill-decision.mjs';
 import { buildPreBundle, renderPromptBullets, runPre, resolveOutDir, negationBundle } from '../lib/skill-pre.mjs';
 import { runPost } from '../lib/skill-post.mjs';
+import { parsePostArgs } from '../lib/skill-post-args.mjs';
+import { makeIntent } from './helpers/intent-fixture.mjs';
 import { measureAlt } from '../lib/measure.mjs';
 import { readJson } from '../lib/shared/cli.mjs';
 import { skillRoot } from '../lib/shared/cli.mjs';
@@ -20,7 +22,7 @@ import { parseFixAction } from '../lib/skill-action.mjs';
 import {
   buildClaimScope,
   decisionCore,
-  validateReceiptV1Shape,
+  validateReceiptShape,
 } from '../lib/skill-receipt-core.mjs';
 import { DEFAULT_PARAMS } from '../lib/skill-params.mjs';
 
@@ -174,6 +176,79 @@ test('pre CLI creates no output for invalid declared intent', () => {
   }
 });
 
+test('post args: intent is a strict value flag shared with gate', () => {
+  expect(parsePostArgs([
+    'artifact.svg',
+    '--intent',
+    'intent.json',
+    '--lint',
+    '--out-dir',
+    'out',
+  ])).toEqual({
+    inputPath: 'artifact.svg',
+    flags: { intent: 'intent.json', lint: true },
+    outDirFlag: 'out',
+  });
+});
+
+test.each([
+  [['artifact.svg', '--intent'], /requires one non-empty value/],
+  [['artifact.svg', '--intent', 'a.json', '--intent', 'b.json'], /duplicate flag/],
+  [['artifact.svg', '--intent=a.json'], /unsupported flag spelling/],
+  [['artifact.svg', '--unknown'], /unknown flag/],
+  [['artifact.svg', 'extra.svg'], /exactly one artifact/],
+])('post args reject hostile grammar', (argv, message) => {
+  expect(() => parsePostArgs(argv)).toThrow(message);
+});
+
+test('post: intent changes binding only, never the decision core or policy', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-intent-post-'));
+  try {
+    const firstPath = path.join(tempDir, 'first.intent.json');
+    const secondPath = path.join(tempDir, 'second.intent.json');
+    fs.writeFileSync(firstPath, JSON.stringify(makeIntent('first')));
+    fs.writeFileSync(secondPath, JSON.stringify(makeIntent('second')));
+    const first = (await runPost(goodPath, {
+      flags: { intent: firstPath },
+    })).decision;
+    const second = (await runPost(goodPath, {
+      flags: { intent: secondPath },
+    })).decision;
+    expect(decisionCore(first)).toEqual(decisionCore(second));
+    expect(first.binding.policy).toEqual(second.binding.policy);
+    expect(first.binding.intent.sha256).not.toBe(second.binding.intent.sha256);
+    expect(first.binding.schema).toBe('aesthete.binding/v2');
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test.each(['skill-post.mjs', 'skill-gate.mjs'])(
+  '%s rejects invalid intent before creating output',
+  (script) => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-intent-post-'));
+    try {
+      const intentPath = path.join(tempDir, 'intent.json');
+      const outDir = path.join(tempDir, 'out');
+      fs.writeFileSync(intentPath, '{"schema":"a","schema":"b"}');
+      const result = spawnSync(process.execPath, [
+        '--no-install',
+        path.join(root, 'lib', script),
+        goodPath,
+        '--intent',
+        intentPath,
+        '--out-dir',
+        outDir,
+      ], { cwd: root, encoding: 'utf8' });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('INTENT_INPUT_INVALID');
+      expect(fs.existsSync(path.join(outDir, 'decision.json'))).toBe(false);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  },
+);
+
 test('post: catalog-bad → fix_geometry (P0)', async () => {
   const altBytesBefore = fs.readFileSync(badPath);
   const { decision } = await runPost(badPath, { flags: {}, outDir: undefined });
@@ -213,7 +288,11 @@ describe('snapshot-bound post emission', () => {
     expect(decision.decision).toBe('pass');
     expect(decision.claim_scope.pass_means)
       .toBe('no_enabled_blocking_rule_triggered');
-    expect(decision.binding.schema).toBe('aesthete.binding/v1');
+    expect(decision.binding.schema).toBe('aesthete.binding/v2');
+    expect(decision.binding.intent).toEqual({
+      status: 'not_requested',
+      sha256: null,
+    });
     expect(decision.binding.completeness).toBe('complete');
     expect(decision.binding.artifact.sha256)
       .toBe(sha256Bytes(fs.readFileSync(goodPath)));
@@ -722,7 +801,7 @@ describe('receipt-backed post and gate process failures', () => {
       const decision = JSON.parse(
         fs.readFileSync(path.join(outDir, 'decision.json'), 'utf8'),
       );
-      expect(validateReceiptV1Shape(decision)).toEqual({
+      expect(validateReceiptShape(decision)).toEqual({
         status: 'bound',
         issues: [],
       });

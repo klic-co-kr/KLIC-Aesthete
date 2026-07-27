@@ -161,3 +161,41 @@ Gate: READY. Contract snapshot behavior remained unchanged.
 - `git diff --check`: pass.
 
 Gate: READY. No high-impact finding remained.
+
+## Task 5 — Post and gate v2 emission
+
+### Pre-review
+
+- Post and gate share one strict argv parser.
+- Duplicate, unknown, equals-form, missing-value, and extra positional input fail before output.
+- Requested intent is snapshotted and schema-validated before artifact evaluation.
+- Intent object/value never enters fold, claim scope, policy, or action construction.
+- New emission always uses binding v2 with `bound` or `not_requested`.
+- Gate: READY when output creation occurs only after successful `runPost()`.
+
+### RED
+
+- The first focused run failed because `skill-post-args.mjs` did not exist.
+- After parser and v2 wiring, the legacy surface assertion correctly exposed
+  that new emissions are v2 rather than v1.
+
+### GREEN
+
+- Focused post/intent/snapshot/gate run: 17 pass, 0 fail.
+- Receipt core and snapshot regressions: 140 pass, 0 fail.
+
+### Post-review
+
+- Post and gate use the same strict parser.
+- Both processes reject duplicate-key intent with exit 2,
+  `INTENT_INPUT_INVALID`, and no decision file.
+- Two valid intents produce identical decision core and policy but different
+  intent digests.
+- Intent-free calls emit exact v2 `not_requested`.
+- Full `test/skill-surface.test.mjs`: 54 pass, 0 fail.
+- Evaluator/fold/action modules have no new intent parameter or data flow;
+  search hits are pre-existing prose uses of the word.
+- `git diff --check`: pass.
+
+Gate: READY. The obsolete v1-only surface assertion was updated to the generic
+version dispatcher.
