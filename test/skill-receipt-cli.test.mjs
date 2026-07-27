@@ -22,6 +22,7 @@ import {
   sha256Json,
 } from '../lib/shared/canonical-json.mjs';
 import { makeTwoSlideDeck } from './helpers/pptx-fixture.mjs';
+import { makeIntent } from './helpers/intent-fixture.mjs';
 import { parseFixAction } from '../lib/skill-action.mjs';
 import Ajv2020 from 'ajv/dist/2020.js';
 
@@ -86,6 +87,18 @@ test('receipt args accept one verify command, two positionals, and known flags',
       slide: 2,
     },
     outPath: null,
+  });
+});
+
+test('receipt args accept one strict intent path', () => {
+  expect(parseReceiptArgs([
+    'verify',
+    'decision.json',
+    'artifact.svg',
+    '--intent',
+    'intent.json',
+  ])).toMatchObject({
+    flags: { intent: 'intent.json' },
   });
 });
 
@@ -211,6 +224,75 @@ describe('verifyReceiptFiles snapshot fold', () => {
     return { decision: result.decision, decisionPath };
   }
 
+  function writeIntent(name, goal) {
+    const intentPath = path.join(tempDir, name);
+    fs.writeFileSync(intentPath, JSON.stringify(makeIntent(goal)));
+    return intentPath;
+  }
+
+  test('v2 intent current, stale, and missing matrix is exact', async () => {
+    const intentA = writeIntent('intent-a.json', 'first');
+    const intentB = writeIntent('intent-b.json', 'second');
+    const emitted = await emitDecision(
+      goodPath,
+      { intent: intentA },
+      'intent-bound.json',
+    );
+
+    expect((await verifyReceiptFiles({
+      decisionPath: emitted.decisionPath,
+      artifactPath: goodPath,
+      flags: { intent: intentA },
+    }, { root: fixtureRoot })).status).toBe('current');
+
+    expect((await verifyReceiptFiles({
+      decisionPath: emitted.decisionPath,
+      artifactPath: goodPath,
+      flags: { intent: intentB },
+    }, { root: fixtureRoot })).issues).toEqual([
+      { code: 'INTENT_CHANGED' },
+    ]);
+
+    try {
+      await verifyReceiptFiles({
+        decisionPath: emitted.decisionPath,
+        artifactPath: goodPath,
+        flags: {},
+      }, { root: fixtureRoot });
+      throw new Error('expected CURRENT_INPUT_INVALID');
+    } catch (error) {
+      expect(error.code).toBe('CURRENT_INPUT_INVALID');
+    }
+  });
+
+  test('v2 not-requested intent becomes stale when valid intent is supplied', async () => {
+    const intentPath = writeIntent('intent-added.json', 'added');
+    const emitted = await emitDecision(goodPath, {}, 'intent-not-requested.json');
+    const result = await verifyReceiptFiles({
+      decisionPath: emitted.decisionPath,
+      artifactPath: goodPath,
+      flags: { intent: intentPath },
+    }, { root: fixtureRoot });
+    expect(result.status).toBe('stale');
+    expect(result.issues).toEqual([{ code: 'INTENT_CHANGED' }]);
+  });
+
+  test('malformed current intent is an input error, never stale', async () => {
+    const intentPath = path.join(tempDir, 'intent-malformed.json');
+    fs.writeFileSync(intentPath, '{"schema":"a","schema":"b"}');
+    const emitted = await emitDecision(goodPath, {}, 'intent-invalid-current.json');
+    try {
+      await verifyReceiptFiles({
+        decisionPath: emitted.decisionPath,
+        artifactPath: goodPath,
+        flags: { intent: intentPath },
+      }, { root: fixtureRoot });
+      throw new Error('expected INTENT_INPUT_INVALID');
+    } catch (error) {
+      expect(error.code).toBe('INTENT_INPUT_INVALID');
+    }
+  });
+
   test('unchanged complete receipt is current and each primary input is read once', async () => {
     const { decisionPath } = await emitDecision(goodPath);
     const reader = countedReader();
@@ -231,6 +313,8 @@ describe('verifyReceiptFiles snapshot fold', () => {
         'artifact.sha256',
         'contract.status',
         'contract.sha256',
+        'intent.status',
+        'intent.sha256',
         'action_inputs',
         'policy_sha256',
       ],

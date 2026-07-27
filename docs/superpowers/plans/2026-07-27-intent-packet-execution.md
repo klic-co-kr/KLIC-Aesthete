@@ -199,3 +199,38 @@ Gate: READY. No high-impact finding remained.
 
 Gate: READY. The obsolete v1-only surface assertion was updated to the generic
 version dispatcher.
+
+## Task 6 — Receipt verification
+
+### Pre-review
+
+- V1 plus `--intent` is `CURRENT_INPUT_INVALID`, not stale.
+- V2 bound without `--intent` is `CURRENT_INPUT_INVALID`, not stale.
+- V2 not-requested plus no flag can be current.
+- V2 not-requested plus a valid flag is stale `INTENT_CHANGED`.
+- Invalid current intent is `INTENT_INPUT_INVALID`, never a verification result.
+- Gate: READY when every matrix row has a process or API-level test.
+
+### RED
+
+- Parser rejected `--intent` as unknown.
+- Programmatic verification rejected the intent flag as an unknown policy
+  field.
+
+### GREEN
+
+- Full receipt CLI and core run: 136 pass, 0 fail.
+
+### Post-review
+
+- Bound/same intent is current.
+- Bound/changed intent is stale with only `INTENT_CHANGED`.
+- Bound/missing intent is `CURRENT_INPUT_INVALID`.
+- Not-requested/new valid intent is stale with `INTENT_CHANGED`.
+- Malformed current intent is `INTENT_INPUT_INVALID`, never stale.
+- V2 checked fields include `intent.status` and `intent.sha256`.
+- `bun test test/skill-receipt-cli.test.mjs --rerun-each 2`:
+  98 pass, 0 fail.
+- `git diff --check`: pass.
+
+Gate: READY. Version dispatch occurs before current-input construction.
