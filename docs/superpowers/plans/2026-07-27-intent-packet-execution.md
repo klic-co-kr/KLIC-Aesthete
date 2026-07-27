@@ -234,3 +234,43 @@ version dispatcher.
 - `git diff --check`: pass.
 
 Gate: READY. Version dispatch occurs before current-input construction.
+
+## Task 7 — Cross-layer hardening
+
+### Pre-review
+
+- This task adds no feature surface.
+- Tests attack ordering, first-buffer coherence, output atomicity, v1 pinning, and decision invariance.
+- Any production edit must correspond to a reproduced failing test.
+- Gate: READY when each approved acceptance criterion maps to a named test.
+
+### Acceptance matrix
+
+- Pre repeated input is byte-equivalent and missing values remain explicit.
+- Invalid scope contradiction creates no output directory.
+- Post and gate invalid intent create no output directory or advisory files.
+- A mutating intent reader validates and digests the same first bytes.
+- Intent A/B preserve decision core, claim scope, policy, and action.
+- No-intent post emits v2 `not_requested`.
+- V1 and v2 exact-shape and current-input behavior remain version pinned.
+- Same, changed, added, removed, and invalid intent paths have exact outcomes.
+- Intent stale ordering and version-specific checked fields are tested.
+
+### Matrix result
+
+- Five-file acceptance matrix: 258 pass, 0 fail.
+- No production defect was reproduced; no production file was changed.
+- Broader action/preflight/contract regression: 97 pass, 0 fail.
+
+### Post-review
+
+- Intent code paths are limited to pre, snapshot, post binding, receipt core,
+  verifier, and strict CLI plumbing.
+- Other search hits are pre-existing comments describing design intent.
+- `foldDecision()` is called once from post with an intent-free `foldInput`.
+- Unknown/duplicate/malformed intent, newline-only byte drift, missing current
+  intent, v3 schema, v1 extra intent, and v2 missing intent are covered by the
+  accumulated unit and integration tests.
+- `git diff --check`: pass.
+
+Gate: READY. All approved acceptance criteria have named evidence.

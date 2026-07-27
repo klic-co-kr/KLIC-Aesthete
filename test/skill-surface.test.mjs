@@ -176,6 +176,29 @@ test('pre CLI creates no output for invalid declared intent', () => {
   }
 });
 
+test('pre CLI creates no output for contradictory declared scope', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-intent-pre-'));
+  try {
+    const briefPath = path.join(tempDir, 'brief.json');
+    const outDir = path.join(tempDir, 'out');
+    fs.writeFileSync(briefPath, JSON.stringify({
+      artifact_type: 'dashboard',
+      scope: { included: ['settings'], excluded: ['settings'] },
+    }));
+    const result = spawnSync(process.execPath, [
+      '--no-install',
+      path.join(root, 'lib', 'skill-pre.mjs'),
+      briefPath,
+      '--out-dir',
+      outDir,
+    ], { cwd: root, encoding: 'utf8' });
+    expect(result.status).not.toBe(0);
+    expect(fs.existsSync(outDir)).toBe(false);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('post args: intent is a strict value flag shared with gate', () => {
   expect(parsePostArgs([
     'artifact.svg',
@@ -214,8 +237,17 @@ test('post: intent changes binding only, never the decision core or policy', asy
     const second = (await runPost(goodPath, {
       flags: { intent: secondPath },
     })).decision;
-    expect(decisionCore(first)).toEqual(decisionCore(second));
-    expect(first.binding.policy).toEqual(second.binding.policy);
+    expect({
+      core: decisionCore(first),
+      claim_scope: first.claim_scope,
+      policy: first.binding.policy,
+      action: first.binding.action_inputs,
+    }).toEqual({
+      core: decisionCore(second),
+      claim_scope: second.claim_scope,
+      policy: second.binding.policy,
+      action: second.binding.action_inputs,
+    });
     expect(first.binding.intent.sha256).not.toBe(second.binding.intent.sha256);
     expect(first.binding.schema).toBe('aesthete.binding/v2');
   } finally {
@@ -242,7 +274,7 @@ test.each(['skill-post.mjs', 'skill-gate.mjs'])(
       ], { cwd: root, encoding: 'utf8' });
       expect(result.status).toBe(2);
       expect(result.stderr).toContain('INTENT_INPUT_INVALID');
-      expect(fs.existsSync(path.join(outDir, 'decision.json'))).toBe(false);
+      expect(fs.existsSync(outDir)).toBe(false);
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -542,6 +574,25 @@ describe('single-snapshot resource consumption', () => {
     expect(result.decision.binding.policy.resources.schemas.files.find(
       (entry) => entry.relative_path === 'schemas/alt.schema.json',
     ).sha256).toBe(sha256Bytes(firstBytes));
+  });
+
+  test('intent validation and binding digest consume the same first bytes', async () => {
+    const intentPath = path.join(tempDir, 'intent.json');
+    const firstBytes = Buffer.from(JSON.stringify(makeIntent('first')));
+    fs.writeFileSync(intentPath, firstBytes);
+    const reader = mutatingReader((filePath, count) => {
+      if (filePath === intentPath && count === 1) {
+        fs.writeFileSync(intentPath, '{"schema":"broken"}');
+      }
+    });
+    const result = await runPost(fixtureGood, {
+      flags: { intent: intentPath },
+      deps: { root: fixtureRoot, io: reader },
+    });
+    expect(reader.count(intentPath)).toBe(1);
+    expect(result.intentSnapshot.value.goal).toBe('first');
+    expect(result.decision.binding.intent.sha256)
+      .toBe(sha256Bytes(firstBytes));
   });
 
   test('relative artifact locator is frozen before injected I/O can change cwd', async () => {
