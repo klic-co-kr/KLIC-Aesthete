@@ -56,11 +56,24 @@ bun install
 bun run test
 
 # 에이전트 원샷 (권장)
-bun lib/skill-pre.mjs examples/dashboard-brief.json --out-dir /tmp/ae-pre
-bun lib/skill-post.mjs examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json --out-dir /tmp/ae-bad
-bun lib/skill-receipt.mjs verify /tmp/ae-bad/decision.json examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json
+bun lib/skill-pre.mjs examples/dashboard-intent-brief.json --out-dir /tmp/ae-pre
+# pre.json + contract.json + intent.json + prompt_bullets.md
+
+bun lib/skill-post.mjs examples/catalog-bad.layout.json \
+  --contract /tmp/ae-pre/contract.json --intent /tmp/ae-pre/intent.json \
+  --out-dir /tmp/ae-bad
+# decision.json (입력 artifact는 수정하지 않음)
+
+# 저장 decision으로 행동하기 전에 post와 같은 평가 플래그를 반복한다.
+bun lib/skill-receipt.mjs verify /tmp/ae-bad/decision.json \
+  examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json \
+  --intent /tmp/ae-pre/intent.json
 # current만 분기. stale=새 post, unbound|incomplete|invalid=새 post 또는 escalation
-bun lib/skill-gate.mjs examples/catalog-good.layout.json --out-dir /tmp/ae-g
+
+bun lib/skill-gate.mjs examples/catalog-good.layout.json \
+  --contract /tmp/ae-pre/contract.json --intent /tmp/ae-pre/intent.json \
+  --out-dir /tmp/ae-g
+# exit 0=pass, 나쁜 레이아웃은 exit 1
 
 # 전체 규칙: docs/agent-llm-usage.md
 
@@ -89,6 +102,30 @@ bun lib/structure.mjs verify layout.alt evidence-grid    # PASS(exit 0) / FAIL(e
 bun lib/structure.mjs classify deck.pptx dashboard       # 감지된 구조 + 기하 metrics
 # 폐루프: preflight(목표) → 생성 → structure verify(구조 수용) → fix --contract(기하 수용)
 ```
+
+---
+
+## Intent Packet과 receipt freshness
+
+`skill-pre`는 brief에 선언된 context를 `intent.json`으로 만든다. 생성기와
+post/gate/receipt 검증에 같은 파일을 전달한다.
+
+| Intent 데이터 | 역할 |
+|---|---|
+| `goal`, `scope`, `content_priority`, `audience`, `source` | 선언된 생성 context |
+| 원본 파일 SHA-256 | receipt freshness binding |
+| Intent 값 | 측정·decision fold·fix action에는 **절대 들어가지 않음** |
+
+새 post/gate decision은 `aesthete.binding/v2`를 쓴다. bound v2 receipt는
+artifact, contract, intent 원본 bytes, policy, schema, runtime, 설치된 구현이
+모두 일치할 때만 `current`다. intent에 줄바꿈만 하나 추가해도
+`INTENT_CHANGED`가 된다. 기존 no-intent 경로도 지원하며
+`intent.status=not_requested`인 v2를 출력한다.
+
+보장 범위는 좁다. scope는 구현·review coverage가 아니고 content priority는
+reading order의 증거가 아니다. `must_preserve`/`must_not_assume`은 기하
+강제가 아니며, `current`나 `pass`는 correctness·comprehension·human
+approval을 확립하지 않는다.
 
 ---
 
@@ -153,6 +190,11 @@ lib/
   fix.mjs        폐루프 자동보정 (단조 개선 게이트 + P0 서브루프 청소, 진동·NaN 방지)
   tune.mjs       자가진화 튜너 (diff → skill-params.json)
   preflight.mjs  전처리 — artifact type → 타입별 contract + 기하 budget + 금지 기본값(생성 전 목표)
+  skill-intent.mjs  brief → 결정론적 생성 intent packet
+  skill-pre.mjs     사전 facade → contract + intent + prompt bullets
+  skill-post.mjs    사후 facade → decision + binding/v2 receipt
+  skill-receipt.mjs 저장 decision freshness 검증(v1/v2)
+  skill-gate.mjs    같은 post fold를 쓰는 CI facade
   vuln.mjs       취약점 엔진 — 이산 known-bad 패턴 탐지(negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche) + 화면 UI 가이드라인 시그니처(icon-fill-mix·all-caps-text·pure-black-text·low-contrast-ui). 화면 매체 한정 — 포스터의 대문자 디스플레이 타이포와 다이어그램 chrome은 '의도'로 보고 억제
   slop.mjs       AI-slop 시그니처 엔진 — vuln과 동형(시그니처 fold + overridable thresholds + advisory). v1 = HTML 리터럴 존재 스캔 전용(SVG/PPTX/LLM-judge = v2). 4축: palette(클리셰 indigo→violet→pink 그라디언트·glassmorphism·그라디언트 보더 [카드 상단 바 / 콜아웃 좌측 레일]), decoration(헤딩 내 이모지·이탤릭 헤딩 [Hallmark 게이트 38a — top AI tell]·아이콘 포화·장식 애니메이션), copy(LLM 마케팅 lexicon + fake-precision 수치[다중-9 % / 라운드 Nx 배수 — 연구 기반 tell] — 본문+헤딩 커버, 분리자 정규화; generic LLM-judge = v2 stub → 항상 unmeasured), template(trusted-by 로고 띠·hero 3종). 미보정 — 보수적 존재 floor, corpus 튜닝은 v2
   profiles.mjs   실행 프로파일 매트릭스 — 층마다 허용/금지/성공의 진실(measure-only/fix-geometry/llm-judge/human-gate)
@@ -165,8 +207,8 @@ lib/
   tokens.mjs     토큰 레지스트리 + 정적 분석
   skill-params.mjs  튜닝 가능한 인지 파라미터
   geometry/color/similarity/quadtree.mjs  순수 수학 (NaN 가드)
-schemas/         alt·contract·report·common (JSON Schema 2020-12, additionalProperties:false)
-examples/        catalog-{good,bad,fixable}.layout.json + catalog.contract.json
+schemas/         alt·contract·intent·decision·report·common (JSON Schema 2020-12)
+examples/        catalog fixtures + dashboard-intent-brief.json
 test/            bun:test + golden.mjs (zero-dep)
 ```
 
@@ -178,14 +220,19 @@ test/            bun:test + golden.mjs (zero-dep)
 
 | 명령 | 설명 |
 |---|---|
-| `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR]` | 사전 → bullets + contract |
-| `bun lib/skill-post.mjs <artifact> [--contract c] [--out-dir DIR]` | 사후 → decision (비파괴) |
-| `bun lib/skill-receipt.mjs verify <decision.json> <artifact> [같은 post 플래그]` | 저장 decision freshness 검증. `current`에서만 분기하며 authenticity/correctness 증명은 아님 |
-| `bun lib/skill-gate.mjs <artifact>` | CI exit |
+| `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR] [--diversify]` | 사전 → pre + contract + intent + prompt bullets |
+| `bun lib/skill-post.mjs <artifact> [--contract c] [--intent i] [--out-dir DIR]` | 사후 → decision (비파괴, LLM 재판정 없음) |
+| `bun lib/skill-receipt.mjs verify <decision.json> <artifact> [--contract c] [--intent i] [같은 post 플래그]` | 저장 decision freshness 검증. `current`에서만 분기하며 authenticity/correctness 증명은 아님 |
+| `bun lib/skill-gate.mjs <artifact> [--contract c] [--intent i] [같은 플래그]` | CI — pass=0, fix/regenerate=1, human/usage=2 |
 
 `pass`는 활성화된 차단 규칙이 발동하지 않았다는 뜻뿐이며 semantic/render/native fidelity나 human approval이 아니다.
+Intent는 생성 context와 receipt freshness 입력일 뿐 measurement/fold 입력이
+아니다. Scope는 구현·review coverage가 아니며 content priority는 reading
+order의 증거가 아니다.
 
-플레이북: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md)
+package.json scripts: pre / post / receipt / gate. 짧은 스킬:
+skills/aesthete-*/SKILL.md. 플레이북:
+[docs/agent-llm-usage.md](./docs/agent-llm-usage.md)
 
 ### 엔진
 

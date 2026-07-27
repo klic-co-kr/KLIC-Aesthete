@@ -105,6 +105,30 @@ bun lib/structure.mjs classify deck.pptx dashboard       # detected structure + 
 
 ---
 
+## Intent Packet and receipt freshness
+
+`skill-pre` turns declared brief context into `intent.json`. Pass that same
+file to generation, post/gate, and receipt verification:
+
+| Intent data | What it does |
+|---|---|
+| `goal`, `scope`, `content_priority`, `audience`, `source` | Declared generation context |
+| Raw-file SHA-256 | Receipt freshness binding |
+| Intent values | **Never** enter measurement, decision fold, or fix action |
+
+New post/gate decisions use `aesthete.binding/v2`. A bound v2 receipt verifies
+as `current` only when the artifact, contract, intent bytes, policy, schemas,
+runtime, and installed implementation still match. A byte-only intent change
+returns `INTENT_CHANGED`. The legacy no-intent path remains supported and emits
+v2 with `intent.status=not_requested`.
+
+These claims are deliberately narrow: scope is not implementation or review
+coverage; content priority is not proof of reading order;
+`must_preserve`/`must_not_assume` are not geometric enforcement; neither
+`current` nor `pass` establishes correctness, comprehension, or human approval.
+
+---
+
 ## The 9 cognitive skills
 
 Each skill has a three-layer structure — **observe · measure · cognitive effect** (per the proposal spec). All include zero-division and NaN guards.
@@ -166,6 +190,11 @@ lib/
   fix.mjs        closed-loop auto-correction (monotonic-improvement gate + P0 sub-loop cleanup; anti-oscillation, anti-NaN)
   tune.mjs       self-evolving tuner (diff → skill-params.json)
   preflight.mjs  pre-generation — artifact type → type-tuned contract + geometric budget + banned defaults (generation goal)
+  skill-intent.mjs  brief → deterministic generation intent packet
+  skill-pre.mjs     pre facade → contract + intent + prompt bullets
+  skill-post.mjs    post facade → decision + binding/v2 receipt
+  skill-receipt.mjs stored-decision freshness verifier (v1/v2)
+  skill-gate.mjs    CI facade using the same post fold
   structure.mjs  structural classifier/verifier — geometric signatures (classify / verify)
   diversify.mjs  .aesthete/log.json structure rotation (--diversify)
   vuln.mjs       vulnerability engine — discrete known-bad patterns (negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header) + screen-UI guideline signatures (icon-fill-mix·all-caps-text·pure-black-text·low-contrast-ui). Screen-scoped: poster caps display type and diagram chrome are suppressed as intent, not defect
@@ -180,8 +209,8 @@ lib/
   tokens.mjs     token registry + static analysis
   skill-params.mjs  tunable cognitive parameters
   geometry/color/similarity/quadtree.mjs  pure math (NaN-guarded)
-schemas/         alt·contract·report·common (JSON Schema 2020-12, additionalProperties:false)
-examples/        catalog-{good,bad,fixable}.layout.json + catalog.contract.json
+schemas/         alt·contract·intent·decision·report·common (JSON Schema 2020-12)
+examples/        catalog fixtures + dashboard-intent-brief.json
 test/            bun:test + golden.mjs (zero-dep)
 ```
 
