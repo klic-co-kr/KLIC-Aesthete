@@ -274,3 +274,47 @@ Gate: READY. Version dispatch occurs before current-input construction.
 - `git diff --check`: pass.
 
 Gate: READY. All approved acceptance criteria have named evidence.
+
+## Task 8 — Skills and documentation
+
+### Pre-review
+
+- Every documented full-pipeline post/gate/verify example passes the same
+  intent path.
+- Every skill says intent is generation context, not evaluator input.
+- Scope and priority claims remain non-enforced.
+- `pass` and `current` keep their existing narrow meanings.
+- No borrowed numeric UI rule or prose from reviewed external repositories is
+  copied.
+- Gate: READY when all command surfaces are listed by one `rg` query.
+
+### RED
+
+- `bun test test/skill-surface.test.mjs -t "documented intent pipeline"`
+  failed because `examples/dashboard-intent-brief.json` did not exist.
+
+### GREEN
+
+- The focused documentation pipeline test passed: 1 pass, 0 fail.
+- A real pre run wrote `intent.json` from
+  `examples/dashboard-intent-brief.json`.
+- Full `test/skill-surface.test.mjs`: 57 pass, 0 fail.
+- The skill-creator validator accepted the root skill and all three subskills.
+
+### Post-review
+
+- The recommended full pipeline passes one contract path and one intent path
+  through post, gate, and receipt verification.
+- The legacy no-intent inspection path remains documented as a narrower,
+  supported mode.
+- Every skill describes intent as generation context and receipt freshness
+  input, never measurement or decision-fold input.
+- Scope, content priority, preservation, and assumption fields retain their
+  non-enforced boundaries.
+- `current`, `pass`, and human approval retain their narrow meanings.
+- The adversarial external-rule query found only pre-existing README terms;
+  no external review mode, numeric rule, or unrelated UI standard was
+  attributed to the new intent packet.
+- `git diff --check`: pass.
+
+Gate: READY. No documentation claim expands evaluator coverage.

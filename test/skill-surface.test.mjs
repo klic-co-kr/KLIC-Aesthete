@@ -199,6 +199,49 @@ test('pre CLI creates no output for contradictory declared scope', () => {
   }
 });
 
+test('documented intent pipeline is current end to end', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aesthete-intent-doc-'));
+  try {
+    const preDir = path.join(tempDir, 'pre');
+    const postDir = path.join(tempDir, 'post');
+    const pre = spawnSync(process.execPath, [
+      '--no-install',
+      path.join(root, 'lib', 'skill-pre.mjs'),
+      path.join(root, 'examples', 'dashboard-intent-brief.json'),
+      '--out-dir',
+      preDir,
+    ], { cwd: root, encoding: 'utf8' });
+    expect(pre.status).toBe(0);
+    const post = spawnSync(process.execPath, [
+      '--no-install',
+      path.join(root, 'lib', 'skill-post.mjs'),
+      goodPath,
+      '--contract',
+      path.join(preDir, 'contract.json'),
+      '--intent',
+      path.join(preDir, 'intent.json'),
+      '--out-dir',
+      postDir,
+    ], { cwd: root, encoding: 'utf8' });
+    expect(post.status).toBe(0);
+    const verify = spawnSync(process.execPath, [
+      '--no-install',
+      path.join(root, 'lib', 'skill-receipt.mjs'),
+      'verify',
+      path.join(postDir, 'decision.json'),
+      goodPath,
+      '--contract',
+      path.join(preDir, 'contract.json'),
+      '--intent',
+      path.join(preDir, 'intent.json'),
+    ], { cwd: root, encoding: 'utf8' });
+    expect(verify.status).toBe(0);
+    expect(verify.stdout).toContain('status=current');
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('post args: intent is a strict value flag shared with gate', () => {
   expect(parsePostArgs([
     'artifact.svg',

@@ -56,17 +56,23 @@ bun install
 bun run test
 
 # Agent one-shots (recommended)
-bun lib/skill-pre.mjs examples/dashboard-brief.json --out-dir /tmp/ae-pre
-# pre.json + contract.json + prompt_bullets.md
+bun lib/skill-pre.mjs examples/dashboard-intent-brief.json --out-dir /tmp/ae-pre
+# pre.json + contract.json + intent.json + prompt_bullets.md
 
-bun lib/skill-post.mjs examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json --out-dir /tmp/ae-bad
+bun lib/skill-post.mjs examples/catalog-bad.layout.json \
+  --contract /tmp/ae-pre/contract.json --intent /tmp/ae-pre/intent.json \
+  --out-dir /tmp/ae-bad
 # decision.json (input NOT mutated)
 
 # Before acting on a stored decision, repeat the same post evaluation flags.
-bun lib/skill-receipt.mjs verify /tmp/ae-bad/decision.json examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json
+bun lib/skill-receipt.mjs verify /tmp/ae-bad/decision.json \
+  examples/catalog-bad.layout.json --contract /tmp/ae-pre/contract.json \
+  --intent /tmp/ae-pre/intent.json
 # current=branch; stale=fresh post; unbound|incomplete|invalid=fresh post or escalation
 
-bun lib/skill-gate.mjs examples/catalog-good.layout.json --out-dir /tmp/ae-g
+bun lib/skill-gate.mjs examples/catalog-good.layout.json \
+  --contract /tmp/ae-pre/contract.json --intent /tmp/ae-pre/intent.json \
+  --out-dir /tmp/ae-g
 # exit 0 = pass; bad layouts exit 1
 
 # Full LLM rules: docs/agent-llm-usage.md
@@ -187,12 +193,15 @@ test/            bun:test + golden.mjs (zero-dep)
 
 | Command | Description |
 |---|---|
-| `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR] [--diversify]` | Pre one-shot → pre.json + contract.json + prompt_bullets.md |
-| `bun lib/skill-post.mjs <artifact> [--contract c] [--structure ID] [--lint] [--vuln-gate] [--out-dir DIR]` | Post one-shot → decision.json (non-destructive). No LLM judging |
-| `bun lib/skill-receipt.mjs verify <decision.json> <artifact> [same post flags]` | Verify stored decision freshness. Only `current` may branch; this is not authenticity or correctness |
-| `bun lib/skill-gate.mjs <artifact> [same flags]` | CI — pass=0; fix_geometry or regenerate=1; human or usage=2 |
+| `bun lib/skill-pre.mjs <brief.json> [--out-dir DIR] [--diversify]` | Pre one-shot → pre.json + contract.json + intent.json + prompt_bullets.md |
+| `bun lib/skill-post.mjs <artifact> [--contract c] [--intent i] [--structure ID] [--lint] [--vuln-gate] [--out-dir DIR]` | Post one-shot → decision.json (non-destructive). No LLM judging |
+| `bun lib/skill-receipt.mjs verify <decision.json> <artifact> [--contract c] [--intent i] [same post flags]` | Verify stored decision freshness. Only `current` may branch; this is not authenticity or correctness |
+| `bun lib/skill-gate.mjs <artifact> [--contract c] [--intent i] [same flags]` | CI — pass=0; fix_geometry or regenerate=1; human or usage=2 |
 
 `pass` means only that no enabled blocking rule triggered; it is not semantic/render/native fidelity or human approval.
+Intent is declared generation context and receipt freshness input, never a
+measurement/fold input. Scope is not implementation/review coverage, and
+content priority is not proof of reading order.
 
 package.json scripts: pre / post / receipt / gate. Short skills: skills/aesthete-*/SKILL.md. Playbook: [docs/agent-llm-usage.md](./docs/agent-llm-usage.md).
 

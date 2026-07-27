@@ -22,10 +22,15 @@ bun lib/skill-pre.mjs <brief.json> --out-dir DIR
 |---|---|
 | `prompt_bullets.md` | **생성 프롬프트에 그대로** |
 | `contract.json` | post/fix에 **같은 파일** |
+| `intent.json` | 선언된 생성 context의 SSOT; post/gate/verify에 **같은 파일** |
 | `pre.json` | structure.id, negation 등 |
 
 ## 다음
-생성기 돌린 뒤 → `aesthete-post` + `--contract DIR/contract.json`
+생성기 돌린 뒤 → `aesthete-post` +
+`--contract DIR/contract.json --intent DIR/intent.json`
+
+Intent의 scope/priority/audience/source는 생성 지시다. 구현·review coverage,
+reading order, comprehension, geometric enforcement, human approval을 증명하지 않는다.
 
 ## Slop prevention (secondary)
 

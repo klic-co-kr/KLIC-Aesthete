@@ -8,10 +8,11 @@ description: 생성 후 decision JSON. LLM 판정 금지. fix_geometry면 fix �
 전체 법: [`docs/agent-llm-usage.md`](../../docs/agent-llm-usage.md)
 
 ```bash
-bun lib/skill-post.mjs <artifact> --contract PRE/contract.json --out-dir POST
+bun lib/skill-post.mjs <artifact> \
+  --contract PRE/contract.json --intent PRE/intent.json --out-dir POST
 
 bun lib/skill-receipt.mjs verify POST/decision.json <artifact> \
-  --contract PRE/contract.json
+  --contract PRE/contract.json --intent PRE/intent.json
 # post에 쓴 domain/slide/profile/structure/type와 boolean 평가 플래그도 동일하게 전달
 ```
 
@@ -24,6 +25,8 @@ bun lib/skill-receipt.mjs verify POST/decision.json <artifact> \
 일치일 뿐 authenticity, provenance, 실제 실행 코드 동일성, correctness가 아니다.
 `pass`는 **활성화된 차단 규칙이 발동하지 않았다**는 뜻뿐이며
 semantic/render/native fidelity나 human approval이 아니다.
+Intent는 생성 context이며 measurement/fold 입력이 아니다. scope는 review
+coverage가 아니고 content priority는 reading order의 증거가 아니다.
 
 ## decision → 너
 | decision | 행동 |

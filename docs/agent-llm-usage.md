@@ -27,7 +27,7 @@ cd /path/to/KLIC-Aesthete && bun install   # 최초 1회
 
 ```text
 [1] skill-pre  →  DIR_PRE
-[2] 생성기     ← prompt_bullets.md + structure + negation (+ contract 의식)
+[2] 생성기     ← prompt_bullets.md + structure + negation + intent context
 [3] skill-post →  DIR_POST  (artifact 안 고침)
 [4] receipt verify → current일 때만 decision 분기
       pass         → 끝
@@ -43,12 +43,13 @@ REPO=.   # KLIC-Aesthete 루트
 PRE=/tmp/ae-pre-$$
 POST=/tmp/ae-post-$$
 ART=out.layout.json          # 생성기 산출 (ALT JSON 권장)
-BRIEF=examples/dashboard-brief.json   # 또는 네가 만든 brief
+BRIEF=examples/dashboard-intent-brief.json   # 또는 네가 만든 brief
 
 # ── 1) 사전 ──────────────────────────────────
 bun lib/skill-pre.mjs "$BRIEF" --out-dir "$PRE"
 # 생성 프롬프트에 붙일 것:
 #   $PRE/prompt_bullets.md
+#   $PRE/intent.json (선언된 생성 context의 SSOT)
 #   (참고) jq -r .structure.id $PRE/pre.json
 #   (참고) jq -r '.negation.bullets[]' $PRE/pre.json
 
@@ -57,11 +58,13 @@ bun lib/skill-pre.mjs "$BRIEF" --out-dir "$PRE"
 # ── 3) 사후 ──────────────────────────────────
 bun lib/skill-post.mjs "$ART" \
   --contract "$PRE/contract.json" \
+  --intent "$PRE/intent.json" \
   --out-dir "$POST"
 
 # 저장된 decision으로 행동하기 직전. post에 쓴 평가 플래그를 동일하게 반복한다.
 if ! bun lib/skill-receipt.mjs verify "$POST/decision.json" "$ART" \
-  --contract "$PRE/contract.json"; then
+  --contract "$PRE/contract.json" \
+  --intent "$PRE/intent.json"; then
   echo "DECISION NOT CURRENT: fresh post or escalation required"
   exit 2
 fi
@@ -78,7 +81,9 @@ case "$DEC" in
     # receipt-current decision의 절대 argv를 flag 재작성 없이 실행한다.
     bun -e 'const {dirname}=await import("node:path"); const d=await Bun.file(process.argv[1]).json(); const p=Bun.spawnSync(d.next.fix_cmd,{cwd:dirname(d.next.fix_cmd[2]),stdout:"inherit",stderr:"inherit"}); process.exit(p.exitCode)' "$POST/decision.json"
     FIXED=$(jq -r .output "${ART%.*}.fix-log.json" 2>/dev/null || ls "${ART%.*}.fixed."* 2>/dev/null | head -1)
-    bun lib/skill-post.mjs "${FIXED:-$ART}" --contract "$PRE/contract.json" --out-dir "$POST"
+    bun lib/skill-post.mjs "${FIXED:-$ART}" \
+      --contract "$PRE/contract.json" --intent "$PRE/intent.json" \
+      --out-dir "$POST"
     ;;
   regenerate)
     # 생성기 재실행 (루프 카운터 +1, 3 초과 시 human)
@@ -92,7 +97,9 @@ esac
 CI만 필요하면 post 대신:
 
 ```bash
-bun lib/skill-gate.mjs "$ART" --contract "$PRE/contract.json" --out-dir "$POST"
+bun lib/skill-gate.mjs "$ART" \
+  --contract "$PRE/contract.json" --intent "$PRE/intent.json" \
+  --out-dir "$POST"
 # exit: pass=0 | fix_geometry·regenerate=1 | human·usage=2
 ```
 
@@ -111,6 +118,13 @@ on-disk installation이 일치한다는 뜻이다. authenticity, provenance,
 실제 실행 코드 동일성, correctness를 증명하지 않는다.
 `pass`도 **활성화된 차단 규칙이 발동하지 않았다**는 뜻뿐이다.
 semantic/render/native fidelity나 human approval로 확대하지 않는다.
+
+Intent의 goal/scope/content_priority/audience/source는 생성 context다.
+Intent digest만 receipt freshness에 참여하고 measurement/fold에는 들어가지
+않는다. Scope는 구현·review coverage가 아니고 content priority는 reading
+order의 증거가 아니다. must_preserve/must_not_assume은 생성 지시이지
+geometric enforcement가 아니다. Intent와 `current`는 correctness,
+fulfillment, comprehension, human approval을 증명하지 않는다.
 
 ---
 
@@ -188,7 +202,8 @@ pre 출력에서 **반드시** 넘길 것:
 1. `$PRE/prompt_bullets.md` 전체 (또는 `pre.json` → `prompt_bullets[]`)  
 2. `structure.id` (+ 가능하면 shape 문장)  
 3. `negation.bullets` (금지 목록)  
-4. 같은 런의 `contract.json` 경로 — **post/fix에 그대로**
+4. `$PRE/intent.json`의 선언된 생성 context
+5. 같은 런의 `contract.json`과 `intent.json` 경로 — **post/gate/verify에 그대로**
 
 생성기 산출 **권장 형식:** ALT JSON (`schemas/alt.schema.json`).  
 SVG/PPTX/HTML도 import 가능. bbox 없는 “예쁜 마크다운”만 있으면 **측정 불가**.
@@ -257,16 +272,17 @@ fix 끝난 뒤 **항상 post**로 최종 decision 다시 받아.
 1. brief 작성 (`artifact_type` 포함)  
 2. pre → bullets를 생성 프롬프트에 붙임  
 3. 생성 → ART  
-4. post --contract  
+4. post `--contract "$PRE/contract.json" --intent "$PRE/intent.json"`
 5. 표대로 분기 (fix면 fix→post, regen이면 생성 재시도 ≤3)
 
 ### B. 이미 있는 SVG/PPTX “괜찮은지”만
-1. pre 생략 가능 (contract 없으면 P0 중심 판정)  
+1. pre 생략 가능 (legacy no-intent 경로; contract 없으면 P0 중심 판정)
 2. `skill-post.mjs file.svg --out-dir …`  
 3. pass / fix_geometry / regenerate / human 만 보고
 
 ### C. CI
-`skill-gate.mjs` + 실패 시 로그에 `decision.json` 첨부.  
+full pipeline에서는 `skill-gate.mjs "$ART" --contract "$PRE/contract.json"
+--intent "$PRE/intent.json"` + 실패 시 로그에 `decision.json` 첨부.
 LLM 재판정 넣지 말 것.
 
 ---
@@ -276,6 +292,7 @@ LLM 재판정 넣지 말 것.
 - [ ] brief에 `artifact_type` 있나  
 - [ ] pre 돌렸고 `prompt_bullets`를 생성에 넣었나  
 - [ ] post에 **같은** `contract.json` 넣었나  
+- [ ] full pipeline이면 post/gate/verify에 **같은** `intent.json` 넣었나
 - [ ] 저장 decision으로 행동하기 전에 같은 평가 플래그로 receipt `current`를 확인했나
 - [ ] `decision`을 내가 덮어쓰지 않았나  
 - [ ] fix_geometry면 절대 `next.fix_cmd`를 그대로 **실행 후** post 재호출했나

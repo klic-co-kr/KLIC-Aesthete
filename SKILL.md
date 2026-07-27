@@ -26,20 +26,32 @@ skill-pre → (생성기) → skill-post → receipt verify → decision 분기
 
 ## 명령
 ```bash
-bun lib/skill-pre.mjs <brief.json> --out-dir PRE
-# brief 필수 필드: artifact_type  (예: examples/dashboard-brief.json)
+bun lib/skill-pre.mjs examples/dashboard-intent-brief.json --out-dir PRE
+# brief 필수 필드: artifact_type
 
-bun lib/skill-post.mjs <artifact> --contract PRE/contract.json --out-dir POST
+bun lib/skill-post.mjs <artifact> \
+  --contract PRE/contract.json --intent PRE/intent.json --out-dir POST
 # → POST/decision.json
 
 bun lib/skill-receipt.mjs verify POST/decision.json <artifact> \
-  --contract PRE/contract.json
+  --contract PRE/contract.json --intent PRE/intent.json
 # post에 쓴 domain/slide/profile/structure/type와 boolean 평가 플래그도 동일하게 전달
 
-bun lib/skill-gate.mjs <artifact> --contract PRE/contract.json   # CI exit
+bun lib/skill-gate.mjs <artifact> \
+  --contract PRE/contract.json --intent PRE/intent.json   # CI exit
 ```
 
 생성 프롬프트에 넣을 것: `PRE/prompt_bullets.md` + structure.id + negation.
+`PRE/intent.json`은 선언된 생성 context의 SSOT이며 post/gate/verify에 같은
+경로를 전달한다.
+
+Intent 경계:
+
+- goal/scope/content priority/audience/source는 생성 context다.
+- intent digest만 receipt freshness에 참여하며 측정·fold 입력은 아니다.
+- scope는 구현·review coverage가 아니고 priority는 reading order의 증거가 아니다.
+- must_preserve/must_not_assume은 생성 지시이지 geometric enforcement가 아니다.
+- intent는 correctness, fulfillment, comprehension, human approval을 증명하지 않는다.
 
 ## 저장된 decision 사용 전
 
