@@ -318,3 +318,91 @@ Gate: READY. All approved acceptance criteria have named evidence.
 - `git diff --check`: pass.
 
 Gate: READY. No documentation claim expands evaluator coverage.
+
+## Task 9 — Final gate
+
+### Pre-review
+
+- All eight implementation commits are present.
+- No task-owned file remains unstaged or uncommitted.
+- User-owned `AGENTS.md` remains untracked and untouched.
+- Final claims require fresh command output from this task.
+
+### Static boundary evidence
+
+- The evaluator/fold/action search found only pre-existing uses of the English
+  word “intent” in structure/vulnerability prose and comments. No packet,
+  snapshot, digest, or intent flag reaches those modules.
+- The only uncommitted task-owned path was this execution record.
+- `AGENTS.md` remained untracked.
+- `git diff --check`: pass.
+
+### Focused and full verification
+
+- Focused intent/receipt/action matrix: 326 pass, 0 fail across 6 files.
+- `npm test`: all golden checks passed; 700 pass, 0 fail across 46 files.
+- The suite grew from the recorded 654-test baseline to 700 tests.
+
+### Real end-to-end evidence
+
+- Pre exit `0`, wrote `contract.json` and `intent.json`.
+- Post exit `0`, wrote a bound `aesthete.binding/v2` receipt.
+- Same artifact, contract, and intent verified as `current`, issues `0`,
+  exit `0`.
+- A copied intent with one additional newline verified as `stale`, issue
+  `INTENT_CHANGED`, exit `1`.
+
+### Final adversarial questions
+
+1. **Can any intent field reach `foldDecision()` through an object spread?**
+   No. `foldInput` is an explicit literal ending at `paths`; intent is
+   snapshotted before evaluation and added only to the later binding input.
+   The two-valid-intent surface test pins identical decision core, claim
+   scope, policy, and action.
+2. **Can post/gate create a decision after an invalid requested intent?**
+   No. Both use the shared strict parser; `runPost()` snapshots and validates
+   requested intent before artifact evaluation, and CLI output writes occur
+   only after `runPost()` returns. The process test checks that invalid intent
+   leaves the output directory absent.
+3. **Can a v2 receipt omit intent and still validate?** No.
+   `validateBindingStructure(..., "v2")` requires the exact v2 key set and
+   validates the intent pair. Unit tests delete the field and obtain
+   `invalid`.
+4. **Can a v1 receipt accept the v2 field?** No. V1 exact-key validation
+   rejects the extra field, and both the pinned validator and mutable schema
+   have coverage.
+5. **Can a bound v2 receipt verify without current intent bytes?** No.
+   File verification throws `CURRENT_INPUT_INVALID` before current snapshots,
+   and the core verifier independently requires current `bound` intent.
+6. **Does a not-requested v2 receipt become stale when intent is newly
+   supplied?** Yes, with exactly `INTENT_CHANGED`; API and process-adjacent
+   matrix tests cover it.
+7. **Do `policy_sha256` and `decision_core_sha256` remain
+   intent-independent?** Yes. The v2 builder delegates both digests to the
+   unchanged v1 builder and inserts intent afterward. The two-valid-intent
+   test pins both values while the intent digest changes.
+8. **Are all schema and installation manifest effects documented?** Yes.
+   User-facing current semantics explicitly include schema, runtime, and
+   on-disk installation matching. Schema capture includes every schema JSON;
+   installation capture includes every `lib/**/*.mjs` plus package lock
+   inputs. The manifest drift test produces both schema and installation
+   issues.
+9. **Do docs avoid claiming accessibility, responsive-runtime,
+   comprehension, or approval coverage?** Yes for the intent feature.
+   Intent-specific text explicitly denies comprehension and approval and
+   describes only generation context plus freshness. Existing README WCAG
+   measurements remain separately scoped existing features; no intent text
+   expands them or claims responsive-runtime coverage.
+10. **Is `AGENTS.md` absent from every commit?** Yes. Diff-tree enumeration
+    from `122f6c1..HEAD` returned no `AGENTS.md`, and the file remains
+    untracked.
+
+### Post-review
+
+- Complete production, schema, test, skill, example, and documentation diffs
+  from approved spec commit `122f6c1` were reviewed.
+- No reproducible production defect or high-impact documentation finding
+  remained, so no corrective implementation commit was created.
+- No independent fixed-model reviewer result is claimed.
+
+Gate: READY. Every completion condition has fresh local evidence.
