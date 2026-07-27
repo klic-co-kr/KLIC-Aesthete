@@ -952,6 +952,75 @@ test('fold: vuln-gate high → regenerate', () => {
   expect(d.decision).toBe('regenerate');
 });
 
+// ---- contract coverage-insufficiency escalation (no false-fail regenerate loop) ----
+// A contract fail is only regeneration-worthy if the axis was actually measured (finite metric).
+// fails that are pure unmeasurable/partial-null must escalate to human, never regenerate —
+// determinism guarantees re-generation re-measures to the same gap, so regenerate cannot help.
+const crit = (skill, metric, overrides = {}) => ({
+  skill, metric, op: '>=', threshold: 0.7,
+  measured: null, passed: false, status: 'unmeasured',
+  criterion: `${skill}.${metric}>=0.7`, weight: 1,
+  ...overrides,
+});
+
+test('fold: contract fails only on unmeasurable axes → human (not regenerate), even when coverage≠0', () => {
+  const good = measureAlt(readJson(goodPath));   // coverageScore > 0
+  expect(good.summary.coverageScore).not.toBe(0);
+  const d = foldDecision({
+    report: good,
+    alt: readJson(goodPath),
+    contractRequested: true,
+    contractEval: {
+      allPass: false,
+      criteria: [
+        crit('fluency', 'rhythm'),                                   // unmeasurable
+        crit('hierarchy', 'contrast', { status: 'fail' }),           // partial + null metric
+        crit('proximity', 'grouping'),                               // unmeasurable
+      ],
+    },
+  });
+  expect(d.decision).toBe('human');
+  expect(d.reasons.some((r) => r.code === 'CONTRACT_UNMEASURABLE')).toBe(true);
+  expect(d.reasons.some((r) => r.code === 'CONTRACT_FAIL')).toBe(false);
+});
+
+test('fold: contract real metric fail (finite measured) → regenerate', () => {
+  const good = measureAlt(readJson(goodPath));
+  const d = foldDecision({
+    report: good,
+    alt: readJson(goodPath),
+    contractRequested: true,
+    contractEval: {
+      allPass: false,
+      criteria: [
+        crit('balance', 'b', { measured: 0.4, status: 'fail' }),   // finite, compared, failed
+      ],
+    },
+  });
+  expect(d.decision).toBe('regenerate');
+  expect(d.reasons.some((r) => r.code === 'CONTRACT_FAIL')).toBe(true);
+  expect(d.reasons.some((r) => r.code === 'CONTRACT_UNMEASURABLE')).toBe(false);
+});
+
+test('fold: contract mixed real + unmeasurable → regenerate wins, both reasons attached', () => {
+  const good = measureAlt(readJson(goodPath));
+  const d = foldDecision({
+    report: good,
+    alt: readJson(goodPath),
+    contractRequested: true,
+    contractEval: {
+      allPass: false,
+      criteria: [
+        crit('balance', 'b', { measured: 0.4, status: 'fail' }),
+        crit('fluency', 'rhythm'),                                  // unmeasurable, real fail coexists
+      ],
+    },
+  });
+  expect(d.decision).toBe('regenerate');
+  expect(d.reasons.some((r) => r.code === 'CONTRACT_FAIL')).toBe(true);
+  expect(d.reasons.some((r) => r.code === 'CONTRACT_UNMEASURABLE')).toBe(true);
+});
+
 test('physically infeasible area sum', () => {
   const alt = {
     meta: { canvas: { w: 100, h: 100 } },
