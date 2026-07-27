@@ -20,6 +20,26 @@ test('FP suite: legitimate editorial design → ZERO slop findings (no false-pos
   expect(r.findings.length).toBe(0);
 });
 
+test('FP suite: side-tab accent borders fire (Impeccable #1 AI-UI tell)', () => {
+  const r = scan('side-tab.html');
+  expect(r.findings.some((f) => f.id === 'slop.decoration.side-tab-border')).toBe(true);
+  // two thick single-side declarations (6px left + 5px top) → signal ≥ 2
+  const f = r.findings.find((x) => x.id === 'slop.decoration.side-tab-border');
+  expect(f.signal).toBeGreaterThanOrEqual(2);
+  // detectionMode stamped (3a)
+  expect(f.detectionMode).toBe('deterministic');
+});
+
+test('FP suite: motion tells fire (bounce/hover/pulse/marquee/blink — all deterministic)', () => {
+  const r = scan('motion-tells.html');
+  const ids = ['bounce-easing', 'hover-transform', 'pulse-animation', 'marquee', 'blink-cursor'];
+  for (const id of ids) {
+    const f = r.findings.find((x) => x.id === `slop.decoration.${id}`);
+    expect(f).toBeTruthy();
+    expect(f.detectionMode).toBe('deterministic');
+  }
+});
+
 test('FP suite: var()-indirect gradient → unmeasured, NOT a finding (no false-fail)', () => {
   const r = scan('var-indirect.html');
   expect(r.findings.some((f) => f.id === 'slop.palette.gradient')).toBe(false);

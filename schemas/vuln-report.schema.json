@@ -63,7 +63,8 @@
           "axis": { "type": "string" },
           "nodes": { "type": "array", "items": { "type": "string" } },
           "remediation": { "type": "string" },
-          "mode": { "$ref": "common.schema.json#/$defs/fixMode" }
+          "mode": { "$ref": "common.schema.json#/$defs/fixMode" },
+          "detectionMode": { "$ref": "common.schema.json#/$defs/detectionMode" }
         }
       }
     }

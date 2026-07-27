@@ -207,3 +207,87 @@ test('template.hero-trio: three equal hero cards fire (P1)', () => {
   const f = sig.detect({ ...ctxOf(`<div></div>`), alt }, {});
   expect(f).toBeTruthy();
 });
+
+test('decoration.side-tab-border: thick solid one-side border fires (P1, AI UI #1 tell)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.side-tab-border');
+  // stylesheet thick left accent rail
+  expect(sig.detect(ctxOf(`<style>.card{border-left:6px solid #6366f1}</style>`), {})).toBeTruthy();
+  // inline thick top bar
+  expect(sig.detect(ctxOf(`<div style="border-top:5px solid #f00"></div>`), {})).toBeTruthy();
+  expect(sig.tier).toBe('P1');
+});
+
+test('FP-guard: all-side shorthand, thin per-side, and gradient variants do NOT fire side-tab', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.side-tab-border');
+  // all-side shorthand (no per-side keyword) — not a side-tab
+  expect(sig.detect(ctxOf(`<style>.card{border:1px solid #ccc}</style>`), {})).toBeNull();
+  // thin per-side (below minThickness) — legitimate hairline / underline
+  expect(sig.detect(ctxOf(`<style>.card{border-bottom:1px solid #eee}</style>`), {})).toBeNull();
+  // gradient on border side — gradient-border owns this, side-tab excludes gradient
+  expect(sig.detect(ctxOf(`<style>.card{border-top:linear-gradient(90deg,#f00,#00f)}</style>`), {})).toBeNull();
+});
+
+// --- Phase 2 motion tells (extend decoration.animation infra) ---
+
+test('decoration.bounce-easing: overshooting cubic-bezier OR bounce keyword fires (P1)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.bounce-easing');
+  // cubic-bezier with control point outside [0,1] (overshoot)
+  expect(sig.detect(ctxOf(`<style>.a{animation:x 1s cubic-bezier(.68,-0.55,.27,1.55)}</style>`), {})).toBeTruthy();
+  // bounce keyword
+  expect(sig.detect(ctxOf(`<style>.a{transition:transform .3s ease-bounce}</style>`), {})).toBeTruthy();
+});
+
+test('FP-guard: in-range cubic-bezier and plain ease-out do NOT fire bounce-easing', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.bounce-easing');
+  // all control points within [0,1] — legitimate ease-out-quart
+  expect(sig.detect(ctxOf(`<style>.a{transition:transform .3s cubic-bezier(.25,1,.5,1)}</style>`), {})).toBeNull();
+  // plain ease-out, no cubic-bezier
+  expect(sig.detect(ctxOf(`<style>.a{transition:opacity .3s ease-out}</style>`), {})).toBeNull();
+});
+
+test('decoration.hover-transform: :hover scale/rotate fires (P1)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.hover-transform');
+  expect(sig.detect(ctxOf(`<style>.card:hover{transform:scale(1.05)}</style>`), {})).toBeTruthy();
+  expect(sig.detect(ctxOf(`<style>a:hover{transform:rotate(2deg)}</style>`), {})).toBeTruthy();
+});
+
+test('FP-guard: :hover without transform does NOT fire hover-transform', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.hover-transform');
+  // hover changes background only — legitimate interaction, not the tell
+  expect(sig.detect(ctxOf(`<style>.btn:hover{background:#f00}</style>`), {})).toBeNull();
+});
+
+test('decoration.pulse-animation: opacity keyframes with pulse name OR infinite fires (P1)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.pulse-animation');
+  // pulse name on opacity
+  expect(sig.detect(ctxOf(`<style>@keyframes pulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}.d{animation:pulse 2s infinite}</style>`), {})).toBeTruthy();
+  // non-pulse name but infinite application
+  expect(sig.detect(ctxOf(`<style>@keyframes glow{0%{opacity:.5}100%{opacity:1}}.d{animation:glow 1s infinite}</style>`), {})).toBeTruthy();
+});
+
+test('FP-guard: finite fade-in entrance does NOT fire pulse-animation', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.pulse-animation');
+  // fade-in entrance: opacity keyframes, finite, non-pulse name — legitimate reveal
+  expect(sig.detect(ctxOf(`<style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}.hero{animation:fadeIn .6s ease-out forwards}</style>`), {})).toBeNull();
+});
+
+test('decoration.marquee: translateX/left keyframes with marquee name OR infinite fires (P1)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.marquee');
+  expect(sig.detect(ctxOf(`<style>@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-100%)}}.m{animation:marquee 10s linear infinite}</style>`), {})).toBeTruthy();
+});
+
+test('FP-guard: non-marquee finite translateX (deliberate one-shot slide) does NOT fire marquee', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.marquee');
+  expect(sig.detect(ctxOf(`<style>@keyframes nudge{from{transform:translateX(0)}to{transform:translateX(-10px)}}.x{animation:nudge .3s ease-out forwards}</style>`), {})).toBeNull();
+});
+
+test('decoration.blink-cursor: opacity + steps() + blink/cursor name fires (P1)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.blink-cursor');
+  expect(sig.detect(ctxOf(`<style>@keyframes blink{0%{opacity:1}50%{opacity:0}}.c{animation:blink 1s steps(2) infinite}</style>`), {})).toBeTruthy();
+});
+
+test('FP-guard: opacity + steps without blink name does NOT fire blink-cursor', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.blink-cursor');
+  // legitimate stepped fade, no cursor/caret/blink name
+  expect(sig.detect(ctxOf(`<style>@keyframes strobe{0%{opacity:1}50%{opacity:0}}.x{animation:strobe 1s steps(2) infinite}</style>`), {})).toBeNull();
+});

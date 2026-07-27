@@ -129,6 +129,19 @@ coverage; content priority is not proof of reading order;
 
 ---
 
+## Two evaluation axes
+
+Aesthete evaluates a layout along **two independent axes**. Both are deterministic, `measure-only` / advisory, and never touch each other's scores — adding a slop signature never churns the 9-skill report and vice versa (`examples/*.report.json` stays byte-stable across slop changes).
+
+| Axis | What it measures | Input | Module | Surface |
+|---|---|---|---|---|
+| **1 · Cognitive geometry** | layout composition — collision, boundary, hierarchy, balance, proximity, whitespace, harmony, similarity, fluency | ALT bbox tree (`lib/adapters/`) | `lib/skills/` (+ `lib/graph.mjs`) | 9 skills (P0 hard → P2 soft) + symmetry opt-in |
+| **2 · AI-slop signatures** | generated-UI tells — cliché gradient, glassmorphism, side-tab border, bounce easing, hover transform, pulse, marquee, blink cursor, marketing lexicon, trusted-by, hero trio, … | raw HTML source (literal-presence) | `lib/slop.mjs` (+ `lib/slop/signatures/`) | 18 signatures across 4 sub-axes (palette · decoration · copy · template) |
+
+`vuln.mjs` is a third advisory surface (discrete known-bad-pattern negation over geometry/text/color), structurally parallel to slop but multi-domain. Every axis-2 / vuln finding is stamped with a `detectionMode` (`deterministic` today; `browser` / `llm-only` reserved for v2+ signatures like the `copy.generic` LLM judge). Full signature inventory with thresholds + detection mode: [`docs/signature-catalog.md`](./docs/signature-catalog.md) — regenerate with `bun run gen:catalog`.
+
+---
+
 ## The 9 cognitive skills
 
 Each skill has a three-layer structure — **observe · measure · cognitive effect** (per the proposal spec). All include zero-division and NaN guards.
@@ -150,6 +163,21 @@ Each skill has a three-layer structure — **observe · measure · cognitive eff
 - **priority** — tier hierarchy (P0 > P1 > P2). On a constraint clash, the higher tier preempts legibility.
 - **conflict** — opposing pairs (proximity↔whitespace, …) reconciled by a **dynamic compensation weight** (`compensationFactor`, continuous decay proportional to canvas area). Not a hard threshold.
 - **influence** — upward transfer (hierarchy → proximity), reflected via an urgency boost.
+
+---
+
+## AI-slop signatures (axis 2)
+
+The second axis is a literal-presence HTML scanner — it reads raw source (CSS, copy, structure), not the ALT geometry tree, because most AI tells (cliché gradients, motion easing, marketing lexicon) live in the source grammar that geometry cannot see. **v1 is HTML-only**; SVG `<animate>` / PPTX `<p:timing>` / raster-image tells need their own calibrated scanners (v2 — see [`docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md`](./docs/superpowers/specs/2026-07-23-slop-v2-medium-expansion.md)). Signatures are organized by four sub-axes; thresholds are conservative presence floors (uncalibrated until the v2 human-corpus lands).
+
+| Sub-axis | Signatures | Top tells |
+|---|---|---|
+| `palette` | 3 | cliché indigo→violet→pink gradient · glassmorphism (`backdrop-filter`) · gradient border (card top bar / callout left rail) |
+| `decoration` | 10 | emoji-in-heading · italic heading (Hallmark gate 38a) · icon saturation · decorative scale/rotate animation · **side-tab border** (Impeccable's #1 AI-UI tell) · **bounce easing** · **hover transform** · **pulse** · **marquee** · **blink cursor** |
+| `copy` | 3 | LLM marketing lexicon · fake-precision metrics (many-9 % / round Nx) · generic templated copy (`llm-only`, v2 LLM judge — reports `unmeasured`) |
+| `template` | 2 | "Trusted by" logo strip · three-up hero-card row |
+
+Motion tells (the decoration row's last five) reuse the existing `@keyframes` extraction — bounce easing = cubic-bezier overshoot outside `[0,1]`; pulse/marquee narrow to pulse/marquee names **or** `infinite` application to suppress legitimate finite entrances and carousels; blink cursor requires opacity + `steps()` + a cursor/caret name. Each signature is `deterministic` unless its `detectionMode` says otherwise. Full per-signature thresholds + detection mode: [`docs/signature-catalog.md`](./docs/signature-catalog.md).
 
 ---
 
@@ -198,7 +226,7 @@ lib/
   structure.mjs  structural classifier/verifier — geometric signatures (classify / verify)
   diversify.mjs  .aesthete/log.json structure rotation (--diversify)
   vuln.mjs       vulnerability engine — discrete known-bad patterns (negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header) + screen-UI guideline signatures (icon-fill-mix·all-caps-text·pure-black-text·low-contrast-ui). Screen-scoped: poster caps display type and diagram chrome are suppressed as intent, not defect
-  slop.mjs       AI-slop signature engine — mirrors vuln (signature fold + overridable thresholds + advisory). v1 = HTML literal-presence scan only (SVG/PPTX/LLM-judge = v2). Four axes: palette (cliché indigo→violet→pink gradient · glassmorphism · gradient border [card top bar / callout left rail]), decoration (emoji-in-heading · italic heading [Hallmark gate 38a — top AI tell] · icon saturation · decorative animation), copy (LLM marketing lexicon + fake-precision metrics [many-9 % / round Nx — research-attested tells] over body+headings, separator-normalized; generic LLM-judge = v2 stub → always unmeasured), template (trusted-by logo strip · hero trio). Uncalibrated — conservative presence floors, corpus tuning is v2
+  slop.mjs       AI-slop signature engine — mirrors vuln (signature fold + overridable thresholds + advisory). v1 = HTML literal-presence scan only (SVG/PPTX/LLM-judge = v2). Four axes: palette (cliché indigo→violet→pink gradient · glassmorphism · gradient border [card top bar / callout left rail]), decoration (emoji-in-heading · italic heading [Hallmark gate 38a — top AI tell] · icon saturation · decorative animation · side-tab border [Impeccable's #1 AI-UI tell: thick accent border on one side of a card] · bounce easing · hover transform · pulse · marquee · blink cursor), copy (LLM marketing lexicon + fake-precision metrics [many-9 % / round Nx — research-attested tells] over body+headings, separator-normalized; generic LLM-judge = v2 stub → always unmeasured), template (trusted-by logo strip · hero trio). Uncalibrated — conservative presence floors, corpus tuning is v2
   profiles.mjs   execution-profile matrix — per-tier truth of allowed/forbidden/success (measure-only/fix-geometry/llm-judge/human-gate)
   validate.mjs   validation harness — A/B/C/D score variants correlated against a human-rated corpus (demo corpus is synthetic placeholder)
   diffview.mjs   before/after single-screen viewer — round-trips pre/post-fix SVG through the same adapter into one HTML, side-by-side + score delta
@@ -249,7 +277,7 @@ package.json scripts: pre / post / receipt / gate. Short skills: skills/aesthete
 | `bun lib/overlay/svg.mjs <original.svg> <fixed.alt.json> [out.svg]` | **SVG overlay export** — applies the fixed ALT as `<g transform>` wraps on the ORIGINAL svg (path / gradient / stroke preserved — no flattening). Closed-loop-safe: `fix` still mutates `bbox` (measure reads it); each imported node carries `_originalBbox`, and overlay derives the transform delta from it |
 | `bun lib/overlay/pptx.mjs <original.pptx> <fixed.alt.json> [out.patches.json] [--slide N]` | **PPTX overlay export** — emits an OfficeCLI `batch` manifest (`{op:set, path:/slide[N]/shape[M], props:{x,y,w,h in EMU}}`) applying the fixed ALT to the ORIGINAL pptx (masters/themes/charts preserved). Re-parses the original to map each `<p:sp>` to its true OfficeCLI shape-index (handles interspersed pics); positional match, throws on mismatch |
 | `bun lib/vuln.mjs <layout> [vuln-report.json] [--type dashboard\|marketing\|report\|diagram\|poster]` | **vulnerability engine** — discrete known-bad patterns (negation: no-focal·no-rhythm·type-accident·rainbow·even-split·ai-cliche·hanging-header) plus **screen-UI guideline signatures** (icon-fill-mix · all-caps-text · pure-black-text · low-contrast-ui = WCAG 1.4.11 non-text 3:1). `--type` injects context and suppresses signatures that contradict the type's intent (avoids false positives). advisory, `measure-only` |
-| `bun lib/slop.mjs <artifact.html> [slop.json] [--type T] [--medium html]` | **slop signature engine** — advisory AI-slop detection across 4 axes (palette · decoration · copy · template). v1: HTML literal-presence scan only (SVG/PPTX/LLM-judge = v2); every threshold overridable via `opts.thresholds[id]`; every finding `suggestionOnly`. `measure-only`, uncalibrated |
+| `bun lib/slop.mjs <artifact.html> [slop.json] [--type T] [--medium html]` | **slop signature engine** — advisory AI-slop detection across 4 axes (palette · decoration · copy · template). v1: HTML literal-presence scan only (SVG/PPTX/LLM-judge = v2); every threshold overridable via `opts.thresholds[id]`; every finding `suggestionOnly`, stamped with `detectionMode` (`deterministic` today; `browser`/`llm-only` reserved for v2+). `measure-only`, uncalibrated. Full signature list with thresholds + detection mode: [`docs/signature-catalog.md`](./docs/signature-catalog.md) (regenerate via `bun run gen:catalog`) |
 | `bun lib/validate.mjs [corpus.json] [validate-report.json]` | **validation harness** — correlates A/B/C/D score variants (overallScore / measuredAestheticScore / hardIntegrityScore / coverageScore) against the corpus `humanScore` + baseline. The demo corpus is synthetic |
 | `bun lib/diffview.mjs <layout\|svg> [out.html] [--contract c.json]` | **before/after viewer** — round-trips pre/post-fix SVG through the same adapter, side-by-side on one screen + score before→after delta. Open `out.html` in a browser to visually compare the correction |
 

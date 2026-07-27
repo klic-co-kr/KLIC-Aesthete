@@ -19,7 +19,8 @@
     "pre": "bun lib/skill-pre.mjs",
     "post": "bun lib/skill-post.mjs",
     "gate": "bun lib/skill-gate.mjs",
-    "receipt": "bun lib/skill-receipt.mjs"
+    "receipt": "bun lib/skill-receipt.mjs",
+    "gen:catalog": "bun scripts/gen-signature-catalog.mjs > docs/signature-catalog.md"
   },
   "dependencies": {
     "ajv": "^8.17.1",

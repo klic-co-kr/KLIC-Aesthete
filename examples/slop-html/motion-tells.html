@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Motion Tells</title><style>
+  /* bounce-easing: overshooting cubic-bezier */
+  @keyframes bounceIn { 0% { transform: scale(.8) } 60% { transform: scale(1.05) } 100% { transform: scale(1) } }
+  .hero { animation: bounceIn 1s cubic-bezier(.68,-0.55,.27,1.55); }
+  /* hover-transform */
+  .card:hover { transform: scale(1.05); }
+  /* pulse-animation: opacity + pulse name + infinite */
+  @keyframes pulse { 0% { opacity: .4 } 50% { opacity: 1 } 100% { opacity: .4 } }
+  .dot { animation: pulse 2s ease-in-out infinite; }
+  /* marquee: translateX + marquee name + infinite */
+  @keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-100%) } }
+  .ticker { animation: marquee 10s linear infinite; }
+  /* blink-cursor: opacity + steps() + blink name */
+  @keyframes blink { 0% { opacity: 1 } 50% { opacity: 0 } }
+  .caret { animation: blink 1s steps(2) infinite; }
+</style></head><body>
+  <h1 class="hero">Lazy Impact</h1>
+  <div class="card">Hover me</div>
+  <span class="dot">●</span>
+  <div class="ticker">scrolling text scrolling text</div>
+  <span class="caret">_</span>
+</body></html>

@@ -45,7 +45,10 @@ coverage가 아니고 content priority는 reading order의 증거가 아니다.
 ## Slop detection (post-hoc, HTML, deterministic)
 
 `aesthete-post` scans raw HTML for AI-slop signatures (cliché gradient, glassmorphism, emoji in
-headings, icon saturation, decorative animation, cliché lexicon, trusted-by, hero-trio).
+headings, icon saturation, decorative animation, side-tab border, bounce easing, hover transform,
+pulse, marquee, blink cursor, cliché lexicon, trusted-by, hero-trio). Each finding carries a
+`detectionMode` (`deterministic` today; `llm-only` reserved for signatures like `copy.generic`
+that need a v2 LLM judge). Full list: `docs/signature-catalog.md`.
 
 - `--slop` : write advisory `slop.json` (no decision change).
 - `--slop-gate` : P0 measured-fail (always) + P1 measured-fail → `regenerate` (priority 60).

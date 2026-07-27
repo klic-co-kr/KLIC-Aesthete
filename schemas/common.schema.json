@@ -20,6 +20,7 @@
     "nodeShape": { "enum": ["rect", "circle", "ellipse", "path", "line", "image", "text"] },
     "coverage": { "enum": ["measured", "partial", "unmeasurable"] },
     "fixMode": { "enum": ["autoFixable", "suggestionOnly"] },
+    "detectionMode": { "enum": ["deterministic", "browser", "llm-only"] },
     "role": { "enum": ["heading", "body", "caption", "decor", "control"] },
     "severity": { "enum": ["high", "medium", "low"] }
   }
