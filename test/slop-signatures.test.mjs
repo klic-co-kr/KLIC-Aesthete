@@ -291,3 +291,85 @@ test('FP-guard: opacity + steps without blink name does NOT fire blink-cursor', 
   // legitimate stepped fade, no cursor/caret/blink name
   expect(sig.detect(ctxOf(`<style>@keyframes strobe{0%{opacity:1}50%{opacity:0}}.x{animation:strobe 1s steps(2) infinite}</style>`), {})).toBeNull();
 });
+
+// --- copy.hidden-carrier: invisible unicode watermark carriers (watermarks-remover Layer A port) ---
+// Detection-only port: edit-based LLM watermark marks hide in zero-width/tag/bidi codepoints.
+// Their presence in HTML source is strong "text passed through an LLM" evidence — the single
+// highest-confidence slop tell available to a deterministic scanner.
+const HC = () => COPY.find((s) => s.id === 'slop.copy.hidden-carrier');
+
+test('copy.hidden-carrier: single tag char (U+E0001) fires (P2 medium)', () => {
+  const sig = HC();
+  const html = `<p>hello\u{E0001}world</p>`;
+  const f = detect(sig, html);
+  expect(f).toBeTruthy();
+  expect(sig.tier).toBe('P2');
+  expect(sig.severity).toBe('medium');
+});
+
+test('copy.hidden-carrier: bidi override (U+202D) fires', () => {
+  expect(detect(HC(), `<p>\u202Dmirrored</p>`)).toBeTruthy();
+});
+
+test('copy.hidden-carrier: BOM (U+FEFF) mid-text fires', () => {
+  expect(detect(HC(), `<p>wa\uFEFFtermark</p>`)).toBeTruthy();
+});
+
+test('copy.hidden-carrier: ZWSP below threshold does NOT fire (copy-paste contamination FP)', () => {
+  // a single stray ZWSP can sneak in via copy-paste — default minZwsp=5 keeps it silent
+  expect(detect(HC(), `<p>one\u200B stray</p>`)).toBeNull();
+});
+
+test('copy.hidden-carrier: ZWSP at threshold fires (watermark payloads are repeated)', () => {
+  expect(detect(HC(), `<p>a\u200Bb\u200Bc\u200Bd\u200Be\u200Bf</p>`)).toBeTruthy();
+});
+
+test('FP-guard: legit invisible chars do NOT fire (emoji ZWJ/VS16, Persian ZWNJ, soft hyphen, icon-font PUA)', () => {
+  // family emoji ZWJ sequence + VS16 heart + Persian half-space + soft hyphen + Font Awesome PUA glyph
+  const html = `<p>\u{1F468}‍\u{1F469}‍\u{1F467} ❤️ نی‌مکانه so­ftly</p><span></span>`;
+  expect(detect(HC(), html)).toBeNull();
+});
+
+test('copy.hidden-carrier: leading UTF-8 BOM (encoding signature) does NOT fire', () => {
+  expect(detect(HC(), '\uFEFF<!DOCTYPE html><p>clean</p>')).toBeNull();
+});
+
+test('copy.hidden-carrier: bidi-isolate PAIRS stay silent up to two (bilingual page); three pairs fire', () => {
+  // one Hebrew run + one Arabic run — the canonical legit bilingual page
+  expect(detect(HC(), '<p>hello \u2066\u05E9\u05DC\u05D5\u05DD\u2069 and \u2066\u0645\u0631\u062D\u0628\u0627\u2069 world</p>')).toBeNull();
+  expect(detect(HC(), '<p>\u2066a\u2069 \u2066b\u2069</p>')).toBeNull();
+  expect(detect(HC(), '<p>\u2066a\u2069 \u2066b\u2069 \u2066c\u2069</p>')).toBeTruthy();
+});
+
+test('copy.hidden-carrier: entity-encoded carriers are noted in measuredNotes (transparency)', () => {
+  const ctx = ctxOf('<p>a&#8238;b &#x2066;c</p>');
+  expect(ctx.measuredNotes.some((n) => /entity-encoded carrier/.test(n))).toBe(true);
+});
+
+test('FP-guard: a real flag does NOT mask a genuine tag-char carrier (UTF-16 subtraction regression)', () => {
+  const FLAG = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+  // flag + one raw tag char → hard must be 1 (codepoint subtraction), not 0
+  const f = detect(HC(), `<p>${FLAG} and \u{E0001}</p>`);
+  expect(f).toBeTruthy();
+  expect(f.signal).toBeGreaterThanOrEqual(1);
+});
+
+test('FP-guard: fake emoji tag payload (non-letter tag chars) is NOT protected — fires and is strippable', () => {
+  // U+E0041 is tag-'A' — not a valid subdivision-flag letter payload
+  const fake = `\u{1F3F4}\u{E0041}\u{E0042}\u{E0043}\u{E007F}`;
+  const f = detect(HC(), `<p>${fake}</p>`);
+  expect(f).toBeTruthy();
+});
+
+test('copy.hidden-carrier: isolate-only firing says manual review, never --strip', () => {
+  const f = detect(HC(), '<p>⁦a⁩ ⁦b⁩ ⁦c⁩</p>');
+  expect(f).toBeTruthy();
+  expect(/manual review only/.test(f.remediation)).toBe(true);
+  expect(/strip deterministically/.test(f.remediation)).toBe(false);
+});
+
+test('copy.hidden-carrier: mixed hard+isolate firing still offers --strip for the strippable class', () => {
+  const f = detect(HC(), '<p>\u{E0001} ⁦a⁩</p>');
+  expect(f).toBeTruthy();
+  expect(/--strip/.test(f.remediation)).toBe(true);
+});

@@ -2,6 +2,7 @@ import { test, expect } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { scanSlop } from '../lib/slop.mjs';
+import { scanHtmlSource as ctxOf2 } from '../lib/slop/html-source-scan.mjs';
 import { foldDecision } from '../lib/skill-decision.mjs';
 
 const FIX = (n) => fs.readFileSync(path.join(import.meta.dir, '..', 'examples', 'slop-html', n), 'utf8');
@@ -112,4 +113,139 @@ const RECURSE = process.env.AESTHETE_FP_RECURSE === '1';
   try { out = execSync('AESTHETE_FP_RECURSE=1 bun test test/slop-signatures.test.mjs test/slop-fold.test.mjs test/slop-integration.test.mjs test/slop-fp.test.mjs 2>&1', { encoding: 'utf8' }); }
   catch (e) { out = e.stdout || ''; throw new Error('slop suite failed:\n' + out); }
   expect(out).toMatch(/pass/);
+});
+
+// --- hidden-carrier (watermarks-remover Layer A port): integration + deterministic removal ---
+import { stripCarriers } from '../lib/slop.mjs';
+
+test('FP suite: hidden-carrier — scanSlop integration fires deterministic P2 finding on tag char', () => {
+  const html = `<p>clean text</p><p>marked \u{E0001}text</p>`;
+  const r = scanSlop({ alt, medium: 'html', html });
+  const f = r.findings.find((x) => x.id === 'slop.copy.hidden-carrier');
+  expect(f).toBeTruthy();
+  expect(f.detectionMode).toBe('deterministic');
+  expect(f.severity).toBe('medium');
+  expect(f.tier).toBe('P2');
+});
+
+test('FP suite: hidden-carrier — clean html has NO carrier finding', () => {
+  const r = scan('legit-editorial.html');
+  expect(r.findings.some((x) => x.id === 'slop.copy.hidden-carrier')).toBe(false);
+});
+
+test('FP suite: hidden-carrier — stripCarriers strips fired classes, keeps sub-threshold + legit chars', () => {
+  const TAG = 'a\u{E0001}b', BIDI = 'x\u202Dy', ZWSP = 'z\u200Bz';
+  const LEGIT = '\u{1F468}\u200D\u{1F469} \u0646\u06CC\u200C\u0645\u06A9\u0627\u0646\u0647 so\xADftly \uF015\uFE0F';
+  const html = `<p>${TAG}${BIDI}${ZWSP}${ZWSP}${ZWSP}</p><p>${LEGIT}</p>`;
+  const { html: out, removed, kept } = stripCarriers(html);
+  expect(removed.hard).toBe(2);      // tag char + bidi override — hard tier fired (2 >= 1)
+  expect(removed.zwsp).toBe(0);      // 3 ZWSP < minZwsp 5 — sub-threshold, left in place
+  expect(kept.zwsp).toBe(3);
+  expect(out).not.toMatch(/[\u{E0001}\u202D]/);
+  expect((out.match(/\u200B/g) || []).length).toBe(3); // sub-threshold ZWSP survives
+  expect(out).toContain(LEGIT);      // emoji ZWJ, ZWNJ, soft hyphen, PUA, VS16 untouched
+});
+
+test('FP suite: hidden-carrier — stripCarriers is byte-identity on clean html', () => {
+  const src = FIX('legit-editorial.html');
+  const { html: out, removed } = stripCarriers(src);
+  expect(out).toBe(src);
+  expect(removed.hard + removed.zwsp).toBe(0);
+});
+
+test('FP suite: hidden-carrier — strip → re-scan clears the finding (closed loop)', () => {
+  const html = `<p>marked \u{E0001} text with ​​​ payload</p>`;
+  const before = scanSlop({ alt, medium: 'html', html });
+  expect(before.findings.some((x) => x.id === 'slop.copy.hidden-carrier')).toBe(true);
+  const { html: cleaned } = stripCarriers(html);
+  const after = scanSlop({ alt, medium: 'html', html: cleaned });
+  expect(after.findings.some((x) => x.id === 'slop.copy.hidden-carrier')).toBe(false);
+});
+
+test('FP suite: hidden-carrier — stripCarriers preserves leading BOM (encoding signature) and bidi isolates', () => {
+  const src = '\uFEFF<p>x\u202Dy</p><p>\u2066rtl\u2069</p>';
+  const { html: out, removed } = stripCarriers(src);
+  expect(out.startsWith('\uFEFF')).toBe(true);          // leading BOM kept
+  expect(removed.hard).toBe(1);                          // mid-text bidi override stripped
+  expect(out).toContain('\u2066rtl\u2069');            // isolates NOT stripped (direction-bearing)
+});
+
+test('FP suite: multilingual-legit.html (RTL runs, flags, URL-ZWSP, WJ, ZWNJ, SHY, PUA) → ZERO findings', () => {
+  const r = scan('multilingual-legit.html');
+  expect(r.findings.length).toBe(0);
+});
+
+test('FP suite: stripCarriers on multilingual-legit is a byte-identity no-op (nothing reaches threshold)', () => {
+  const src = FIX('multilingual-legit.html');
+  const { html: out, removed } = stripCarriers(src);
+  expect(out).toBe(src);                             // zero classes reach threshold → NO mutation at all
+  expect(removed.hard + removed.zwsp + removed.wj).toBe(0);
+});
+
+test('FP suite: sub-threshold page (1 legit WJ + 4 ZWSP, scanner says clean) is NOT mutated', () => {
+  const src = '<p>see Fig\u20601</p><p>a\u200Bb\u200Bc\u200Bd\u200Be</p>';
+  const { html: out, removed, kept } = stripCarriers(src);
+  expect(out).toBe(src);                             // wj 1 < 3, zwsp 4 < 5 → clean page stays byte-identical
+  expect(removed.hard + removed.zwsp + removed.wj).toBe(0);
+  expect(kept.wj).toBe(1);
+  expect(kept.zwsp).toBe(4);
+});
+
+test('FP suite: protected-block carriers open no gate — script/style residue is manual-only (round-2 regression)', () => {
+  // 5 ZWSP inside <style>: scanner counts full source → fires; strip gate counts STRIPPABLE
+  // text only → gate closed → nothing removed, kept reports the manual-only residue.
+  const html = '<style>p::after{content:"a​b​c​d​e​f"}</style><p>clean</p>';
+  const r = scanSlop({ alt, medium: 'html', html });
+  expect(r.findings.some((f) => f.id === 'slop.copy.hidden-carrier')).toBe(true);
+  const { html: out, removed, kept } = stripCarriers(html);
+  expect(removed.hard + removed.zwsp + removed.wj).toBe(0); // no gate → no mutation
+  expect(out).toBe(html);
+  expect(kept.zwsp).toBe(5); // audit reconstructs the scanner count
+});
+
+test('FP suite: <SCRIPT>-internal carriers must not open the gate and strip outside carriers (round-2 regression)', () => {
+  // uppercase <SCRIPT> with 5 ZWSP + one ZWSP in a <p>: strippable zwsp = 1 < 5 → gate
+  // closed → the <p> carrier survives too (fixes the inverted variant).
+  const html = '<SCRIPT>var s = "a​b​c​d​e";</SCRIPT><p>one​ stray</p>';
+  const { html: out, removed } = stripCarriers(html);
+  expect(removed.hard + removed.zwsp + removed.wj).toBe(0);
+  expect(out).toBe(html);
+});
+
+test('FP suite: kept reconstructs scanner count — URL-spare + removed-RLO reclassification (round-2 regression)', () => {
+  // ZWSP preceded by a soon-to-be-removed RLO must NOT be misread as URL-spared (ZWSP pass
+  // runs before hard removal, so its lookback sees the original predecessor).
+  const shifted = '<p>/‮​x a​b​c​d​e​f</p>';
+  const s1 = stripCarriers(shifted);
+  expect(s1.removed.zwsp).toBe(6);
+  expect(s1.kept.zwsp).toBe(0);
+  // 6 counted ZWSP of which 1 sits directly after '/': removed 5, kept 1 (audit adds up).
+  const urlSpare = '<p>a​b​c​d​e​f and /​spared</p>';
+  const s2 = stripCarriers(urlSpare);
+  expect(s2.removed.zwsp).toBe(5);
+  expect(s2.kept.zwsp).toBe(1);
+});
+
+test('FP suite: unclosed <script> protects to EOF (round-2 regression)', () => {
+  const html = '<script>const pw = "a\u{E0001}b"; // unclosed';
+  const { html: out, removed, kept } = stripCarriers(html);
+  expect(removed.hard).toBe(0);
+  expect(out).toBe(html);
+  expect(kept.hard).toBe(1);
+});
+
+test('FP suite: fake flag payload is strippable, real flag is not (letters-only carve-out)', () => {
+  const REAL = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+  const FAKE = '\u{1F3F4}\u{E0041}\u{E0042}\u{E0043}\u{E007F}';
+  const { html: out, removed } = stripCarriers(`<p>${REAL}${FAKE}</p>`);
+  expect(out).toContain(REAL);                  // real England flag preserved
+  expect(out).not.toContain(FAKE);              // fake payload stripped
+  expect(removed.hard).toBe([...FAKE].length - 1); // payload + cancel tag chars, astral base preserved
+});
+
+test('FP suite: entity note — hex tag 5-digit fires the note, PUA hex does NOT', () => {
+  const tag = ctxOf2('<p>a&#xE0041;b</p>');
+  const pua = ctxOf2('<p>&#xE041;</p>');
+  expect(tag.measuredNotes.some((n) => /entity-encoded carrier/.test(n))).toBe(true);
+  expect(pua.measuredNotes.some((n) => /entity-encoded carrier/.test(n))).toBe(false);
 });
