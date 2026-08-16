@@ -67,6 +67,75 @@ test('decoration.emoji-in-heading: emoji in body paragraph does NOT fire', () =>
   expect(f).toBeNull();
 });
 
+// --- issue #1: candy Tailwind tinting + body emoji were invisible to the v1 scan ---
+
+test('palette.tailwind-candy: issue #1 pattern fires — emerald badges + amber spans across elements (P1)', () => {
+  const sig = PALETTE.find((s) => s.id === 'slop.palette.tailwind-candy');
+  const html = `<div class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">실측</div><p class="text-amber-800">수동힌트</p>`;
+  const f = sig.detect(ctxOf(html), {});
+  expect(f).toBeTruthy();
+  expect(f.signal).toBe(3); // bg-emerald-100 + text-emerald-800 + text-amber-800, 2 attrs
+  expect(sig.tier).toBe('P1');
+  expect(sig.severity).toBe('medium');
+  expect(/emerald/.test(f.remediation)).toBe(true);
+});
+
+test('palette.tailwind-candy: single legit status banner does NOT fire (one attr, however many utilities)', () => {
+  const sig = PALETTE.find((s) => s.id === 'slop.palette.tailwind-candy');
+  expect(sig.detect(ctxOf(`<p class="rounded bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-800">Saved</p>`), {})).toBeNull();
+});
+
+test('palette.tailwind-candy: neutral + legacy hues do NOT fire (slate chrome, red/blue brand colors)', () => {
+  const sig = PALETTE.find((s) => s.id === 'slop.palette.tailwind-candy');
+  const html = `<main class="bg-white border border-slate-200 p-6"><p class="text-slate-600">a</p><p class="text-red-600">b</p><a class="text-blue-600">c</a></main>`;
+  expect(sig.detect(ctxOf(html), {})).toBeNull();
+});
+
+test('palette.tailwind-candy: t.hues replaces the candy list (per-project allowlist knob, both directions)', () => {
+  const sig = PALETTE.find((s) => s.id === 'slop.palette.tailwind-candy');
+  const html = `<p class="text-emerald-800">a</p><p class="text-emerald-700">b</p><p class="text-rose-700">c</p>`;
+  expect(sig.detect(ctxOf(html), {})).toBeTruthy();                      // default list: 3 hits, 3 attrs
+  expect(sig.detect(ctxOf(html), { hues: ['rose'] })).toBeNull();        // emerald dropped → 1 hit < 3
+  const blueHtml = `<a class="text-blue-600">x</a><a class="text-blue-700">y</a><a class="text-blue-800">z</a>`;
+  expect(sig.detect(ctxOf(blueHtml), {})).toBeNull();                    // blue is legacy, not candy
+  expect(sig.detect(ctxOf(blueHtml), { hues: ['blue'] })).toBeTruthy();  // override can add it back
+});
+
+test('palette.tailwind-candy: minHits/minAttrs raise the bar (override contract, both directions)', () => {
+  const sig = PALETTE.find((s) => s.id === 'slop.palette.tailwind-candy');
+  const html = `<p class="text-emerald-800">a</p><p class="text-emerald-700">b</p><p class="text-emerald-600">c</p>`;
+  expect(sig.detect(ctxOf(html), { minAttrs: 4 })).toBeNull(); // 3 attrs < 4
+  expect(sig.detect(ctxOf(html), { minHits: 4 })).toBeNull();  // 3 hits < 4
+  expect(sig.detect(ctxOf(html), { minAttrs: 3, minHits: 3 })).toBeTruthy();
+});
+
+test('decoration.emoji-in-body: ⚠ in body copy fires (P2 advisory)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.emoji-in-body');
+  const f = sig.detect(ctxOf(`<p>Tab 4회 · 트랩⚠</p>`), {});
+  expect(f).toBeTruthy();
+  expect(f.signal).toBe(1);
+  expect(sig.tier).toBe('P2');
+  expect(sig.severity).toBe('low');
+});
+
+test('decoration.emoji-in-body: heading emoji does NOT double-report (emoji-in-heading owns it)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.emoji-in-body');
+  expect(sig.detect(ctxOf(`<h1>Ship 🚀 faster</h1>`), {})).toBeNull();
+});
+
+test('decoration.emoji-in-body: subdivision flag in body does NOT fire (legit national symbols)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.emoji-in-body');
+  const FLAG = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+  expect(sig.detect(ctxOf(`<p>Regional teams: ${FLAG} and ${FLAG}.</p>`), {})).toBeNull();
+});
+
+test('decoration.emoji-in-body: t.minBodyEmoji raises the bar (override contract, both directions)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.emoji-in-body');
+  const html = `<p>a ⚠ b</p><p>c ✅ d</p>`;
+  expect(sig.detect(ctxOf(html), { minBodyEmoji: 3 })).toBeNull();
+  expect(sig.detect(ctxOf(html), { minBodyEmoji: 2 })).toBeTruthy();
+});
+
 test('decoration.icon-saturation: excessive svg icons fire (P1)', () => {
   const sig = DECO.find((s) => s.id === 'slop.decoration.icon-saturation');
   const html = `<svg></svg>`.repeat(14);

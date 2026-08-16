@@ -29,9 +29,11 @@ HTML-only v1 (SVG `<animate>` / PPTX `<p:timing>` are v2). Grouped by axis: `pal
 | id | title | severity/tier | needs | detection | default threshold | suppressed-for-types |
 |---|---|---|---|---|---|---|
 | `slop.palette.gradient` | cliché AI gradient (indigo→violet→pink stops) | high/P0 | `gradientsLiteral` | `deterministic` | `minClichéStops=2` `hueLo=230` `hueHi=340` `sMin=0.25` | — |
+| `slop.palette.tailwind-candy` | candy-hue Tailwind utility tinting (emerald/amber pill badges + inline color spans — generated-dashboard tell) | medium/P1 | `tailwindColorClasses` | `deterministic` | `minHits=3` `minAttrs=2` | — |
 | `slop.palette.glass` | glassmorphism surface (backdrop-filter) | medium/P1 | `glassLiteral` | `deterministic` | `minGlass=1` | — |
 | `slop.palette.gradient-border` | gradient on a border side (card top bar / callout left rail — AI tell per KLIC-Github research) | medium/P1 | `gradientBorders` | `deterministic` | `minGradientBorders=1` | — |
 | `slop.decoration.emoji-in-heading` | emoji inside heading text | high/P0 | `headings` | `deterministic` | `minEmojiHeadings=1` | — |
+| `slop.decoration.emoji-in-body` | emoji inside body/UI copy | low/P2 | `bodyEmojiSamples` | `deterministic` | `minBodyEmoji=1` | — |
 | `slop.decoration.italic-heading` | italic heading / display type (Hallmark gate 38a — names this a top AI tell) | medium/P1 | `headings` | `deterministic` | `minItalicHeadings=1` | — |
 | `slop.decoration.icon-saturation` | icon saturation (excessive svg/icon glyphs) | medium/P1 | `svgIconCount` | `deterministic` | `minIcons=12` | — |
 | `slop.decoration.animation` | decorative scale/rotate animation on static content | medium/P1 | `animationSignals` | `deterministic` | `minAnimSignals=1` | — |
@@ -44,6 +46,7 @@ HTML-only v1 (SVG `<animate>` / PPTX `<p:timing>` are v2). Grouped by axis: `pal
 | `slop.copy.lexicon` | cliché LLM marketing lexicon | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
 | `slop.copy.fake-precision` | fake-precision metrics (many-9 % or round multipliers — too clean to be measured) | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
 | `slop.copy.generic` | generic templated copy (LLM judge) | low/P2 | `textSamples` | `llm-only` | — | — |
+| `slop.copy.hidden-carrier` | invisible unicode watermark carriers (zero-width/tag/bidi — LLM edit-mark remnant) | medium/P2 | `carriers` | `deterministic` | `minHard=1` `minIsolates=6` `minZwsp=5` `minWj=3` | — |
 | `slop.template.trusted-by` | "Trusted by" logo strip (templated-marketing tell) | medium/P1 | `hasTrustedBy` | `deterministic` | `minTrustedBy=1` | — |
 | `slop.template.hero-trio` | three-up equal hero card row (templated-landing tell) | medium/P1 | `alt` | `deterministic` | `minTrio=3` `maxWidthDiff=0.15` | — |
 

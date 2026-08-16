@@ -42,11 +42,13 @@ const SCANNERS = {
   html: scanHtmlSource,
   pptx: scanPptxSource,   // v2
   svg:  scanSvgSource,    // v2
+  tsx:  scanTsxSource,    // v2 (§5 — reuses the HTML signature set)
 };
 const SIGS_BY_MEDIUM = {
   html: [...PALETTE, ...DECO, ...COPY, ...TMPL],
   pptx: [...PALETTE_PPTX, ...DECO_PPTX],   // v2
   svg:  [...PALETTE_SVG, ...DECO_SVG],     // v2
+  tsx:  [...PALETTE, ...DECO, ...COPY],    // v2 — class/copy tells only (see §5)
 };
 ```
 
@@ -87,7 +89,7 @@ Drafted from observation, **uncalibrated** — corpus tuning is v2 H2. Threshold
 ### 3.4 Honest v1 scope carry-overs
 
 - **Master/theme editing is out of scope** (already noted in main README "Out of scope" — PPTX slide masters/themes). Detection is read-only and works against whatever the file contains; remediation is human/regeneration.
-- **C2PA / provenance metadata** for embedded raster images is a separate concern (§5 raster limitation applies transitively).
+- **C2PA / provenance metadata** for embedded raster images is a separate concern (§6 raster limitation applies transitively).
 
 ## 4. SVG scanner — design
 
@@ -121,9 +123,39 @@ An SVG is XML. Parse with the existing `lib/adapters/svg/` adapter. Relevant ext
 
 When SVG is embedded in HTML, both scanners run. Findings dedupe by signature `id` already (v1 dedup-by-id behavior in `scanSlop`). The same gradient cliche in an inline SVG inside HTML may produce one `palette.gradient` finding (HTML scan) AND one `svg.gradient-cliche` finding (SVG scan). Downstream consumers see both; they're different signatures with different `id`s, so dedup doesn't collapse them — that's intentional (the HTML tell and the SVG tell are independent signals).
 
-## 5. Raster images — out of scope, with documented reason
+## 5. TSX/JSX source (React) — design
 
-### 5.1 Why raster is out of scope
+Added per [issue #1](https://github.com/klic-co-kr/KLIC-Aesthete/issues/1): the KLIC RADIUS dashboard's a11y card carried `className="bg-emerald-100 … text-emerald-800"` badges in its TSX source, and v1 reported 0 slop — the rendered HTML keeps the Tailwind classes verbatim, but the agent loop iterates on the *source*, which nothing scans. TSX scanning catches the same tell one step earlier in the loop.
+
+### 5.1 Source model
+
+A `.tsx`/`.jsx` file is text. No build, no type resolution — literal-presence regex over source, same M1 constraint as HTML:
+
+- `className` evidence: string literals in `className="…"`, `className={'…'}`, and `className={clsx('a', cond && 'b')}` / `cn(...)` argument lists.
+- Copy evidence: JSX text nodes between tags (the `<p>트랩⚠</p>` class of tells).
+- Indirection is unmeasured, mirroring the HTML `var()` stance (C2): `tailwind.config.js` theme aliases, CSS-in-JS template literals, and `@apply` rules live in *other* files the scanner never sees — report a measuredNote, never a false-fail.
+
+### 5.2 Context fields (`scanTsxSource` return)
+
+| Field | Type | Source | Why |
+|---|---|---|---|
+| `tailwindColorClasses` | `Array<{ token, hue, attrIndex }>` | string literals in className expressions, same full-token grammar as HTML | The class grammar is identical — `slop.palette.tailwind-candy` runs **unchanged** |
+| `textSamples` | `string[]` | JSX text nodes | lexicon / fake-precision / `emoji-in-body` reuse |
+| `bodyEmojiSamples` | `string[]` | JSX text nodes (subdivision flags stripped, same as HTML) | `slop.decoration.emoji-in-body` reuse |
+| `headings` | `{ tag, text, italic }[]` | literal `<h1>`–`<h6>` JSX elements only | Component headings (`<Heading>`) need type info — unmeasured note |
+| `measuredNotes` | `string[]` | detection of config/CSS-in-JS indirection | transparency, same as the HTML `<link>` note |
+
+### 5.3 Signature reuse — and what deliberately does NOT transfer
+
+The tells are the class strings and the copy, not the file extension, so the class/copy signatures transfer unchanged. Structure/CSS-dependent signatures do **not**: `palette.gradient`, `palette.glass`, `gradient-border`, `side-tab-border`, and the motion family read CSS that lives in `globals.css` / `tailwind.config.js`, not in the component file — on `tsx` they report `unmeasured` (external cascade), the same boundary HTML already has for `<link>` stylesheets. Template signatures (`trusted-by`, `hero-trio`) need rendered structure → unmeasured on source.
+
+### 5.4 Boundary
+
+This scans **source, not build output**. A rendered page is scannable as `html` today — issue #1's exact complaint was that nobody points the scanner at the intermediate artifact the agent actually edits. `--medium tsx` closes that gap; it does not replace HTML scanning of shipped output.
+
+## 6. Raster images — out of scope, with documented reason
+
+### 6.1 Why raster is out of scope
 
 AI-generated raster images (ChatGPT image gen, Nanobanana, Midjourney, Stable Diffusion outputs) carry tells:
 
@@ -138,7 +170,7 @@ None of these are detectable by current capability (this is a capability gap, no
 - **Literal-presence regex** (slop v1 scanner) reads text/CSS from source — raster pixels have neither.
 - **A vision model** is what these tells actually need (frequency analysis, GAN-fingerprint matching, C2PA parsing) — and a pure-JS no-browser engine can't host one (DESIGN.md out-of-scope).
 
-### 5.2 What would unlock raster slop detection
+### 6.2 What would unlock raster slop detection
 
 Three prerequisites, all out of current scope:
 
@@ -148,9 +180,9 @@ Three prerequisites, all out of current scope:
 
 Until all three exist, raster slop detection is documented as **out of scope** in both the main README and `lib/slop.mjs` header. Slop signatures that fire on raster metadata only (e.g., C2PA `SignedBy` field matching a known AI generator) could be added as a v2.5 concession if the engine ever gains metadata-reading capability — but that's an edge case, not a roadmap item.
 
-## 6. Cross-cutting concerns
+## 7. Cross-cutting concerns
 
-### 6.1 Schema stability
+### 7.1 Schema stability
 
 `schemas/slop-report.schema.json` doesn't change. Findings carry the same `{ id, title, severity, tier, signal, threshold, nodes, remediation, mode }` shape regardless of medium. The `summary.coverage` field gains a `medium` value:
 
@@ -158,23 +190,24 @@ Until all three exist, raster slop detection is documented as **out of scope** i
 "coverage": {
   "html": "measured",
   "pptx": "unmeasurable",   // v2
+  "tsx":  "unmeasurable",   // v2 (§5)
   "svg":  "unmeasurable",   // v2
   "raster": "out-of-scope", // permanent
   ...
 }
 ```
 
-### 6.2 CLI surface
+### 7.2 CLI surface
 
 `bun lib/slop.mjs <artifact> [out.json] [--type T] [--medium html]`
 
-`--medium` already exists in v1 (defaults to `html`). v2 accepts `pptx` | `svg`. Each medium routes to its scanner+signature pair. No new CLI flags.
+`--medium` already exists in v1 (defaults to `html`). v2 accepts `pptx` | `svg` | `tsx`. Each medium routes to its scanner+signature pair. No new CLI flags.
 
-### 6.3 Threshold overrides
+### 7.3 Threshold overrides
 
 Threshold overrides (`opts.thresholds[sigId]`) stay per-signature. A user can override `slop.pptx.theme-cliche.minClichéStops` without affecting the HTML `slop.palette.gradient` threshold, because the ids differ. The `DEFAULT_THRESHOLDS` map grows per medium.
 
-## 7. Implementation phasing
+## 8. Implementation phasing
 
 **Phase 2a — PPTX (estimated: 1 scanner + 4-5 signatures + tests)**
 - Ship `lib/slop/pptx-source-scan.mjs`
@@ -189,18 +222,23 @@ Threshold overrides (`opts.thresholds[sigId]`) stay per-signature. A user can ov
 - Wire `medium: 'svg'`
 - Test fixtures: `examples/slop-svg/`
 
-**Phase 2c — Raster (out of scope indefinitely)**
+**Phase 2c — TSX/JSX source (estimated: 1 scanner + 0 new signatures + tests — issue #1)**
+- Ship `lib/slop/tsx-source-scan.mjs` (className literals + JSX text nodes → the §5.2 ctx)
+- Wire `medium: 'tsx'` in `lib/slop.mjs`; class/copy signatures run unchanged, CSS/structure signatures report `unmeasured` (§5.3)
+- Test fixtures: `examples/slop-tsx/` (a11y-card repro + hand-written legit component)
+
+**Phase 2d — Raster (out of scope indefinitely)**
 - Document the prerequisite chain in `DESIGN.md` Phase 3 hook spec
 - No scanner shipped
 
-## 8. What this spec does NOT do
+## 9. What this spec does NOT do
 
 - Does not ship any new code. v1 stays HTML-only on disk.
 - Does not change the existing HTML signature set.
 - Does not commit to a calibration corpus — that's v2 H2 (a separate human-rated-corpus effort, parallel to the existing `validate.mjs` Bradely-Terry harness).
 - Does not address **pre-generation** rules (`lib/slop-rules.mjs`) — those are medium-agnostic in spirit (rules are prose) and stay as-is. A v2 rules expansion for PPTX/SVG-specific generation guidance is a separate doc.
 
-## 9. Open questions
+## 10. Open questions
 
 1. **Icon-template fingerprint allowlist** — Lucide/Heroicons/Feather are obvious inclusions, but maintaining the allowlist is ongoing work. Defer to v2 H1.
 2. **Cross-medium finding dedup** — when the same artifact triggers both an HTML and an SVG finding for the same effective tell (e.g., gradient cliche in inline SVG), is one finding redundant? Current answer: no — they're independent signals with different `id`s. Revisit after corpus tuning.

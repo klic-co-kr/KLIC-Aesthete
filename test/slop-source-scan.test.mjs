@@ -58,3 +58,27 @@ test('scan: repeated calls on identical link-bearing input are byte-identical (d
   expect(c).toEqual(d);
   expect(a.measuredNotes.length).toBeGreaterThan(0); // the link note must NOT drop on alternating calls
 });
+
+// --- tailwind color tokens + body emoji (issue #1: class-attr palette + 본문 이모지 were unscanned) ---
+
+test('scan: tailwind color tokens extracted per class attr (variant prefixes stripped, opacity tolerated)', () => {
+  const html = `<div class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">x</div><p class="hover:text-amber-700/80 dark:bg-sky-900">y</p>`;
+  const c = scanHtmlSource(html);
+  expect(c.tailwindColorClasses.map((t) => t.token).sort())
+    .toEqual(['bg-emerald-100', 'bg-sky-900', 'text-amber-700/80', 'text-emerald-800']);
+  expect(c.tailwindColorClasses.map((t) => t.hue).sort()).toEqual(['amber', 'emerald', 'emerald', 'sky']);
+  expect(new Set(c.tailwindColorClasses.map((t) => t.attrIndex)).size).toBe(2); // badge div + p — spread is measurable
+});
+
+test('scan: non-tailwind and arbitrary-value classes are NOT color tokens (full-token anchor)', () => {
+  const c = scanHtmlSource(`<div class="hero text-sm bg-[#6366f1] py-0.5 my-emerald-100 has-text-emerald-100 bg-emerald">x</div>`);
+  expect(c.tailwindColorClasses).toEqual([]);
+});
+
+test('scan: body emoji captured from text tags; subdivision flags and heading emoji excluded', () => {
+  const FLAG = '\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+  const c = scanHtmlSource(`<p>Tab 4회 · 트랩⚠</p><p>Regional: ${FLAG}</p><h1>🚀 heading</h1><span>✅ Done</span>`);
+  // ⚠ + ✅ samples; the flag is stripped pre-match (legit national symbol), h1 is not a TEXT_TAG
+  expect(c.bodyEmojiSamples.length).toBe(2);
+  expect(c.bodyEmojiSamples[0]).toContain('⚠');
+});

@@ -21,6 +21,24 @@ test('FP suite: legitimate editorial design → ZERO slop findings (no false-pos
   expect(r.findings.length).toBe(0);
 });
 
+test('FP suite: issue #1 a11y-card — candy Tailwind tinting + body emoji fire (deterministic)', () => {
+  const r = scan('a11y-card.html');
+  const candy = r.findings.find((f) => f.id === 'slop.palette.tailwind-candy');
+  expect(candy).toBeTruthy();
+  expect(candy.signal).toBe(6); // 2 pill badges × (bg+text) + amber score + amber hint span
+  expect(candy.detectionMode).toBe('deterministic');
+  const emoji = r.findings.find((f) => f.id === 'slop.decoration.emoji-in-body');
+  expect(emoji).toBeTruthy();
+  expect(emoji.signal).toBe(1); // 트랩⚠
+});
+
+test('FP suite: hand-written Tailwind chrome (neutral + ONE status tint) → ZERO findings', () => {
+  // The tailwind-candy FP pin: a page a human Tailwind developer actually writes — slate
+  // chrome, one deliberate emerald status note (single attr/hue), legacy-red error text.
+  const r = scan('tailwind-legit.html');
+  expect(r.findings.length).toBe(0);
+});
+
 test('FP suite: side-tab accent borders fire (Impeccable #1 AI-UI tell)', () => {
   const r = scan('side-tab.html');
   expect(r.findings.some((f) => f.id === 'slop.decoration.side-tab-border')).toBe(true);
