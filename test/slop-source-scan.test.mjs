@@ -82,3 +82,34 @@ test('scan: body emoji captured from text tags; subdivision flags and heading em
   expect(c.bodyEmojiSamples.length).toBe(2);
   expect(c.bodyEmojiSamples[0]).toContain('⚠');
 });
+
+test('scan: side-tab borders are context-scoped with maxOther (issue #2 — frames/rails carry the asymmetry)', () => {
+  const c = scanHtmlSource(`<style>
+    .axis-card { border:1px solid var(--line); border-top:3px solid var(--ac); }
+    .frame { border-top:3px solid c; border-right:3px solid c; border-bottom:3px solid c; border-left:3px solid c; }
+    .card-min { border-top:3px solid #b91c1c; }
+    footer { border-top:1px solid #eee; }
+  </style><div style="border-top:5px solid #f00">x</div>`);
+  // qualifying tabs at the signature's default shape (≥2px one side, others ≤1px), source order
+  expect(c.sideTabBorders.filter((b) => b.width >= 2 && b.maxOther <= 1)).toEqual([
+    { side: 'top', width: 3, maxOther: 1 }, // .axis-card — hairline frame + accent override
+    { side: 'top', width: 3, maxOther: 0 }, // .card-min — standalone bar
+    { side: 'top', width: 5, maxOther: 0 }, // inline style
+  ]);
+  // every frame side sees a thick "other" → the asymmetry data is what keeps it silent
+  expect(c.sideTabBorders.filter((b) => b.side === 'top' && b.width === 3 && b.maxOther === 3).length).toBe(1);
+  // 1px footer divider is recorded but below every tab floor
+  expect(c.sideTabBorders.some((b) => b.width === 1 && b.maxOther === 0)).toBe(true);
+});
+
+test('scan: border-width multi-value follows the CSS t/r/b/l expansion', () => {
+  const c = scanHtmlSource(`<style>.w { border-width: 1px 3px; }</style>`);
+  expect(c.sideTabBorders).toEqual([
+    { side: 'top', width: 1, maxOther: 3 },
+    { side: 'right', width: 3, maxOther: 3 }, // the opposite side is also 3px — symmetric rails
+    { side: 'bottom', width: 1, maxOther: 3 },
+    { side: 'left', width: 3, maxOther: 3 },
+  ]);
+  // symmetric emphasis is not a one-side tab: nothing here passes the ≥2px/hairline-others shape
+  expect(c.sideTabBorders.filter((b) => b.width >= 2 && b.maxOther <= 1)).toEqual([]);
+});

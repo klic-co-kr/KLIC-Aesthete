@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><title>report cards — issue #2 repro</title><style>
+  /* Verbatim tells from the KLIC RADIUS report (issue #2): 3px one-side accent bars —
+     the axis-card overrides one side of a 1px frame, the card-min is a standalone bar. */
+  .axis-card { border:1px solid var(--line); border-top:3px solid var(--ac); }
+  .card-min { border-top:3px solid #b91c1c; }
+  footer { border-top:1px solid #eee; } /* FP guard: a real divider stays silent */
+</style></head><body>
+  <section class="axis-card"><h2>축 카드</h2><p>여섯 개 축의 점수를 요약합니다.</p></section>
+  <article class="card-min"><h3>로드맵</h3><p>다음 분기 항목을 나열합니다.</p></article>
+  <footer><p>리포트 생성: 2026-08</p></footer>
+</body></html>

@@ -277,13 +277,36 @@ test('template.hero-trio: three equal hero cards fire (P1)', () => {
   expect(f).toBeTruthy();
 });
 
-test('decoration.side-tab-border: thick solid one-side border fires (P1, AI UI #1 tell)', () => {
+test('decoration.side-tab-border: thick solid one-side border fires (P0 since issue #2, AI UI #1 tell)', () => {
   const sig = DECO.find((s) => s.id === 'slop.decoration.side-tab-border');
   // stylesheet thick left accent rail
   expect(sig.detect(ctxOf(`<style>.card{border-left:6px solid #6366f1}</style>`), {})).toBeTruthy();
   // inline thick top bar
   expect(sig.detect(ctxOf(`<div style="border-top:5px solid #f00"></div>`), {})).toBeTruthy();
-  expect(sig.tier).toBe('P1');
+  expect(sig.tier).toBe('P0');
+  expect(sig.severity).toBe('high');
+});
+
+test('decoration.side-tab-border: issue #2 — 1px frame + 3px top override AND standalone 3px bar fire (KLIC RADIUS)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.side-tab-border');
+  // .axis-card idiom: hairline frame, one side overridden to the accent — the issue's exact CSS
+  expect(sig.detect(ctxOf(`<style>.axis-card { border:1px solid var(--line); border-top:3px solid var(--ac); }</style>`), {})).toBeTruthy();
+  // .card-min idiom: standalone one-side bar, no frame
+  expect(sig.detect(ctxOf(`<style>.card-min { border-top:3px solid #b91c1c; }</style>`), {})).toBeTruthy();
+});
+
+test('decoration.side-tab-border: 2px bar on hairline frame fires at the default floor (issue #2 lowered 4→2)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.side-tab-border');
+  expect(sig.detect(ctxOf(`<style>.a{border:1px solid;border-top:2px solid}</style>`), {})).toBeTruthy();
+  // a 2px bar was invisible under the old minThickness=4 — and stays so when the floor is raised back
+  expect(sig.detect(ctxOf(`<style>.a{border:1px solid;border-top:2px solid}</style>`), { minThickness: 3 })).toBeNull();
+});
+
+test('decoration.side-tab-border: remediation names the replacements (hover lift / internal badge)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.side-tab-border');
+  const f = sig.detect(ctxOf(`<style>.card{border-left:6px solid #6366f1}</style>`), {});
+  expect(/translateY\(-2px\)/.test(f.remediation)).toBe(true);
+  expect(/tag badge/.test(f.remediation)).toBe(true);
 });
 
 test('FP-guard: all-side shorthand, thin per-side, and gradient variants do NOT fire side-tab', () => {
@@ -294,6 +317,16 @@ test('FP-guard: all-side shorthand, thin per-side, and gradient variants do NOT 
   expect(sig.detect(ctxOf(`<style>.card{border-bottom:1px solid #eee}</style>`), {})).toBeNull();
   // gradient on border side — gradient-border owns this, side-tab excludes gradient
   expect(sig.detect(ctxOf(`<style>.card{border-top:linear-gradient(90deg,#f00,#00f)}</style>`), {})).toBeNull();
+});
+
+test('FP-guard: full frame, double rail, and sequential shorthand reset do NOT fire (issue #2 asymmetry gate)', () => {
+  const sig = DECO.find((s) => s.id === 'slop.decoration.side-tab-border');
+  // meaningful full 3px frame — every side sees a 3px "other"
+  expect(sig.detect(ctxOf(`<style>.f { border-top:3px solid c; border-right:3px solid c; border-bottom:3px solid c; border-left:3px solid c; }</style>`), {})).toBeNull();
+  // top+bottom double rail — same class of "other side is also thick"
+  expect(sig.detect(ctxOf(`<style>.r { border-top:3px solid c; border-bottom:3px solid c; }</style>`), {})).toBeNull();
+  // per-side override RESET by a later border: shorthand — the block computes to a plain 1px frame
+  expect(sig.detect(ctxOf(`<style>.x { border-top:3px solid red; border:1px solid #ccc; }</style>`), {})).toBeNull();
 });
 
 // --- Phase 2 motion tells (extend decoration.animation infra) ---

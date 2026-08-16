@@ -37,7 +37,7 @@ HTML-only v1 (SVG `<animate>` / PPTX `<p:timing>` are v2). Grouped by axis: `pal
 | `slop.decoration.italic-heading` | italic heading / display type (Hallmark gate 38a — names this a top AI tell) | medium/P1 | `headings` | `deterministic` | `minItalicHeadings=1` | — |
 | `slop.decoration.icon-saturation` | icon saturation (excessive svg/icon glyphs) | medium/P1 | `svgIconCount` | `deterministic` | `minIcons=12` | — |
 | `slop.decoration.animation` | decorative scale/rotate animation on static content | medium/P1 | `animationSignals` | `deterministic` | `minAnimSignals=1` | — |
-| `slop.decoration.side-tab-border` | thick accent border on one side of a card (side-tab — AI UI #1 tell) | medium/P1 | `sideTabBorders` | `deterministic` | `minHits=1` `minThickness=4` | — |
+| `slop.decoration.side-tab-border` | thick accent border on one side of a card (side-tab — Impeccable's #1 AI-UI tell) | high/P0 | `sideTabBorders` | `deterministic` | `minHits=1` `minThickness=2` `maxOtherSides=1` | — |
 | `slop.decoration.bounce-easing` | bounce/elastic easing on interface motion (dated AI tell) | medium/P1 | `easingBounce` | `deterministic` | — | — |
 | `slop.decoration.hover-transform` | scale/rotate transform on hover (generated-UI signature) | low/P1 | `hoverTransforms` | `deterministic` | `minHoverTransforms=1` | — |
 | `slop.decoration.pulse-animation` | pulsing opacity animation (decorative "live" indicator) | low/P1 | `animations` | `deterministic` | `minPulse=1` | — |

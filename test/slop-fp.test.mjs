@@ -49,6 +49,16 @@ test('FP suite: side-tab accent borders fire (Impeccable #1 AI-UI tell)', () => 
   expect(f.detectionMode).toBe('deterministic');
 });
 
+test('FP suite: issue #2 axis-card — 1px frame + 3px top override fires at P0; 1px footer divider does not', () => {
+  const r = scan('axis-card.html');
+  const f = r.findings.find((x) => x.id === 'slop.decoration.side-tab-border');
+  expect(f).toBeTruthy();
+  expect(f.signal).toBe(2); // .axis-card override + .card-min standalone bar; footer 1px stays silent
+  expect(f.tier).toBe('P0');
+  expect(f.severity).toBe('high');
+  expect(f.detectionMode).toBe('deterministic');
+});
+
 test('FP suite: motion tells fire (bounce/hover/pulse/marquee/blink — all deterministic)', () => {
   const r = scan('motion-tells.html');
   const ids = ['bounce-easing', 'hover-transform', 'pulse-animation', 'marquee', 'blink-cursor'];
