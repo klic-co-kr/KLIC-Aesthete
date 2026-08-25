@@ -32,6 +32,7 @@ HTML-only v1 (SVG `<animate>` / PPTX `<p:timing>` are v2). Grouped by axis: `pal
 | `slop.palette.tailwind-candy` | candy-hue Tailwind utility tinting (emerald/amber pill badges + inline color spans — generated-dashboard tell) | medium/P1 | `tailwindColorClasses` | `deterministic` | `minHits=3` `minAttrs=2` | — |
 | `slop.palette.glass` | glassmorphism surface (backdrop-filter) | medium/P1 | `glassLiteral` | `deterministic` | `minGlass=1` | — |
 | `slop.palette.gradient-border` | gradient on a border side (card top bar / callout left rail — AI tell per KLIC-Github research) | medium/P1 | `gradientBorders` | `deterministic` | `minGradientBorders=1` | — |
+| `slop.palette.overused-font` | overused default font stack (Inter / Space Grotesk / Geist / Instrument Serif) | low/P2 | `fontFamilies` | `deterministic` | `minFamilies=1` | — |
 | `slop.decoration.emoji-in-heading` | emoji inside heading text | high/P0 | `headings` | `deterministic` | `minEmojiHeadings=1` | — |
 | `slop.decoration.emoji-in-body` | emoji inside body/UI copy | low/P2 | `bodyEmojiSamples` | `deterministic` | `minBodyEmoji=1` | — |
 | `slop.decoration.italic-heading` | italic heading / display type (Hallmark gate 38a — names this a top AI tell) | medium/P1 | `headings` | `deterministic` | `minItalicHeadings=1` | — |
@@ -43,12 +44,29 @@ HTML-only v1 (SVG `<animate>` / PPTX `<p:timing>` are v2). Grouped by axis: `pal
 | `slop.decoration.pulse-animation` | pulsing opacity animation (decorative "live" indicator) | low/P1 | `animations` | `deterministic` | `minPulse=1` | — |
 | `slop.decoration.marquee` | auto-scrolling marquee (translateX/left keyframes) | medium/P1 | `animations` | `deterministic` | `minMarquee=1` | — |
 | `slop.decoration.blink-cursor` | fake blinking cursor (steps() opacity animation) | medium/P1 | `animations` `easingStep` | `deterministic` | — | — |
+| `slop.decoration.hollow-text` | hollow outlined type (text-stroke with transparent fill) | medium/P1 | `styleBlocks` | `deterministic` | `minHits=1` | — |
+| `slop.decoration.dark-glow` | saturated glow shadow (neon dark-SaaS halo) | medium/P1 | `shadowDecls` `dropShadows` | `deterministic` | `minHits=1` `minBlurPx=12` `minSaturation=0.4` `minAlpha=0.15` | — |
+| `slop.decoration.over-rounded` | over-rounded surface (single-value border-radius 40–120px) | low/P2 | `radiusDecls` | `deterministic` | `minHits=1` `radiusMin=40` `radiusMax=120` | — |
+| `slop.decoration.repeating-stripe` | repeating-gradient stripe surface (construction-tape texture) | low/P2 | `repeatingGradients` | `deterministic` | `minHits=1` | — |
+| `slop.decoration.decorative-divider` | box-drawing / dash-run divider in text | low/P2 | `textSamples` `headings` | `deterministic` | `minRuns=1` | — |
+| `slop.decoration.transition-all` | transition: all (unnamed-property motion) | low/P2 | `transitionDecls` | `deterministic` | `minHits=1` | — |
+| `slop.decoration.will-change-misuse` | will-change on non-compositable properties | low/P2 | `willChangeDecls` | `deterministic` | `minHits=1` | — |
+| `slop.decoration.layout-prop-anim` | transition on layout properties (width/height/top/margin/padding) | low/P2 | `transitionDecls` | `deterministic` | `minHits=1` | — |
+| `slop.decoration.body-display-contents` | display: contents on <body> (page-level layout collapse) | medium/P1 | `bodyDisplayContents` | `deterministic` | — | — |
 | `slop.copy.lexicon` | cliché LLM marketing lexicon | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
 | `slop.copy.fake-precision` | fake-precision metrics (many-9 % or round multipliers — too clean to be measured) | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
 | `slop.copy.generic` | generic templated copy (LLM judge) | low/P2 | `textSamples` | `llm-only` | — | — |
 | `slop.copy.hidden-carrier` | invisible unicode watermark carriers (zero-width/tag/bidi — LLM edit-mark remnant) | medium/P2 | `carriers` | `deterministic` | `minHard=1` `minIsolates=6` `minZwsp=5` `minWj=3` | — |
+| `slop.copy.lorem` | lorem-ipsum filler copy (abandoned template wearing the layout) | medium/P1 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
+| `slop.copy.em-dash` | em dash in interface copy (the most recognizable generated-text tell) | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
+| `slop.copy.oversized-number` | un-abbreviated oversized figure (≥10,000 typeset raw) | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` `minValue=10000` | — |
+| `slop.copy.not-x-but-y` | "not just X, it’s Y" rebuttal cadence | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
+| `slop.copy.apologetic-error` | apologetic error copy ("Oops! Something went wrong") | low/P2 | `textSamples` `headings` | `deterministic` | `minHits=1` | — |
+| `slop.copy.live-clock` | "LIVE · HH:MM" decorative status eyebrow | low/P2 | `textSamples` | `deterministic` | `minHits=1` | — |
 | `slop.template.trusted-by` | "Trusted by" logo strip (templated-marketing tell) | medium/P1 | `hasTrustedBy` | `deterministic` | `minTrustedBy=1` | — |
 | `slop.template.hero-trio` | three-up equal hero card row (templated-landing tell) | medium/P1 | `alt` | `deterministic` | `minTrio=3` `maxWidthDiff=0.15` | — |
+| `slop.imagery.placeholder-src` | placeholder-service image src (picsum/pravatar/placehold/…) | medium/P1 | `imgTags` | `deterministic` | `minHits=1` | — |
+| `slop.imagery.broken-src` | broken image src (missing / empty / template slot / path-to stand-in) | medium/P1 | `imgTags` | `deterministic` | `minHits=1` | — |
 
 ## detection-mode legend
 

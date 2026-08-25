@@ -1080,10 +1080,12 @@ test('skill-pre: per-key negation merge — preflight copy + slop copy both surv
   // slop's terse copy entry is ALSO present (union, not replace). slop uses
   // "testimonials/counts" with no spaces; preflight uses "testimonials / counts".
   expect(bundle.prompt_bullets.some((b) => /testimonials\/counts/.test(b))).toBe(true);
-  // And the underlying raw copy array carries all entries (length 3: preflight copy,
-  // slop invented-metrics, slop hidden-carrier — union, not replace)
+  // And the underlying raw copy array carries all entries (length 8: preflight copy +
+  // 7 slop copy negations — invented-metrics, hidden-carrier, lorem, em-dash, raw ≥10k
+  // figures, apologetic error, not-X-but-Y — union, not replace; count grew with the
+  // 2026-08 @gessobuild/anti-slop absorption)
   expect(Array.isArray(bundle.negation.raw.copy)).toBe(true);
-  expect(bundle.negation.raw.copy.length).toBe(3);
+  expect(bundle.negation.raw.copy.length).toBe(8);
 });
 
 test('skill-pre: same brief twice (no diversify) → byte-identical slop bullets (deterministic)', async () => {

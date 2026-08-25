@@ -12,8 +12,9 @@ import { SIGNATURES as PALETTE } from '../lib/slop/signatures/palette.mjs';
 import { SIGNATURES as DECO } from '../lib/slop/signatures/decoration.mjs';
 import { SIGNATURES as COPY } from '../lib/slop/signatures/copy.mjs';
 import { SIGNATURES as TMPL } from '../lib/slop/signatures/template.mjs';
+import { SIGNATURES as IMG } from '../lib/slop/signatures/imagery.mjs';
 
-const SLOP = [...PALETTE, ...DECO, ...COPY, ...TMPL];
+const SLOP = [...PALETTE, ...DECO, ...COPY, ...TMPL, ...IMG];
 
 // Reverse the suppression map: id -> [artifact types that treat this pattern as intended].
 function reverseSuppressions(table) {
