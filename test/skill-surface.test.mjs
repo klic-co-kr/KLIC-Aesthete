@@ -1083,7 +1083,7 @@ test('skill-pre: per-key negation merge — preflight copy + slop copy both surv
   // And the underlying raw copy array carries all entries (length 8: preflight copy +
   // 7 slop copy negations — invented-metrics, hidden-carrier, lorem, em-dash, raw ≥10k
   // figures, apologetic error, not-X-but-Y — union, not replace; count grew with the
-  // 2026-08 @gessobuild/anti-slop absorption)
+  // 2026-08 copy-axis expansion)
   expect(Array.isArray(bundle.negation.raw.copy)).toBe(true);
   expect(bundle.negation.raw.copy.length).toBe(8);
 });

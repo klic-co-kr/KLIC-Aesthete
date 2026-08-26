@@ -1,7 +1,7 @@
-// Detection + FP tests for the @gessobuild/anti-slop (v0.4.2, MIT) absorption — 18 literal-
-// presence signatures ported from Gesso-Build/skills. Each test pins the ported threshold AND
-// the FP guard the upstream rule documents (the FP case is never optional: the module header
-// in lib/slop.mjs names FP rate as the #1 failure mode).
+// Detection + FP tests for the 2026-08 slop expansion — 18 literal-presence signatures
+// across copy/palette/decoration/imagery. Each test pins the threshold AND the FP guard
+// (the FP case is never optional: the module header in lib/slop.mjs names FP rate as the
+// #1 failure mode).
 import { test, expect } from 'bun:test';
 import { SIGNATURES as PALETTE } from '../lib/slop/signatures/palette.mjs';
 import { SIGNATURES as DECO } from '../lib/slop/signatures/decoration.mjs';
