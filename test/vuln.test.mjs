@@ -447,6 +447,111 @@ test('FP-guard: a PowerPoint shape id is not copy — all-caps must not fire on 
   expect(has(r, 'all-caps-text')).toBeUndefined();
 });
 
+// ---------------------------------------------------------------------------
+// Alignment-consistency signatures (sibling-misalign / grid-drift). Advisory
+// direction on row/band ALIGNMENT: same-row text siblings must share a first
+// baseline, and content bands should sit on a shared left grid line (two
+// alternating lefts or a centered hero are intent, not drift).
+// ---------------------------------------------------------------------------
+
+const line = (id, text, x, y, fontSize = 16, style = {}) => ({
+  id, kind: 'text', label: text, bbox: { x, y, w: text.length * fontSize * 0.6, h: fontSize * 1.25 },
+  style: { opacity: 1, fontSize, color: '#374151', bg: '#ffffff', role: 'body', ...style },
+});
+
+test('vuln: sibling-misalign flagged on a 2-line/1-line column pair vertically centered in a row', () => {
+  // column A is two lines; column B is one line centered against A's block — its first
+  // baseline drops 10px below both of A's → 2 misaligned row pairs
+  const r = scanAlt(alt([
+    line('a1', 'First line', 100, 420),
+    line('a2', 'Second line', 100, 440),
+    line('b1', 'Solo line', 500, 430),
+  ]));
+  const v = has(r, 'sibling-misalign');
+  expect(v).toBeTruthy();
+  expect(v.signal).toBe(2);
+  expect(v.nodes).toEqual(expect.arrayContaining(['a1', 'a2', 'b1']));
+});
+
+test('FP-guard: a small label beside a large value in one row is NOT sibling-misalign', () => {
+  // key/value rows: a 12px label + 24px value is a font-class MIX (a different pattern).
+  // Both pairs below ALSO break their first baseline while sharing the row band — so this
+  // fails the moment the fontClassRatio guard is dropped (a mild fixture would pass either way).
+  const r = scanAlt(alt([
+    line('lbl1', 'Label', 40, 430, 12),
+    line('val1', 'Value', 120, 410, 24),
+    line('lbl2', 'Label', 40, 630, 12),
+    line('val2', 'Value', 120, 610, 24),
+  ]));
+  expect(has(r, 'sibling-misalign')).toBeUndefined();
+});
+
+test('FP-guard: icons beside text are NOT sibling-misalign (icons carry no fontSize)', () => {
+  // TWO icon+text rows: without the fontSize-on-both guard the missing baselines count every
+  // icon↔text pair as misaligned and the scan fires — a single row would pass either way.
+  const r = scanAlt(alt([
+    icon('ico1', 40, 428, true),
+    line('txt1', 'Row label', 120, 428),
+    icon('ico2', 40, 528, true),
+    line('txt2', 'Row label', 120, 528),
+  ]));
+  expect(has(r, 'sibling-misalign')).toBeUndefined();
+});
+
+test('vuln: grid-drift flagged when three content bands start at drifting left edges', () => {
+  // three stacked sections whose left edges step 40 → 48 → 56 — no shared grid line
+  const r = scanAlt(alt([
+    line('s1', 'Section one', 40, 100, 24),
+    line('s2', 'Section two', 48, 240, 24),
+    line('s3', 'Section three', 56, 380, 24),
+  ]));
+  const v = has(r, 'grid-drift');
+  expect(v).toBeTruthy();
+  expect(v.signal).toBe(3);
+  expect(v.nodes).toEqual(expect.arrayContaining(['s1', 's2', 's3']));
+});
+
+test('FP-guard: a wide/narrow 2-left alternating layout is NOT grid-drift', () => {
+  // wide section at 40, narrow at 220, repeating — TWO lefts are a deliberate rhythm,
+  // not drift (maxLefts = 2)
+  const r = scanAlt(alt([
+    line('w1', 'Wide section', 40, 100, 24),
+    line('n1', 'Narrow', 220, 240, 24),
+    line('w2', 'Wide section', 40, 380, 24),
+    line('n2', 'Narrow', 220, 520, 24),
+  ]));
+  expect(has(r, 'grid-drift')).toBeUndefined();
+});
+
+test('FP-guard: a centered hero band is skipped, not counted as a grid-drift left', () => {
+  // a centered hero is display structure, not a grid section. With the skip, only the two
+  // sections below vote (2 < minBands 3); without it the hero would count as a third left
+  // and the scan would falsely fire.
+  const r = scanAlt(alt([
+    { id: 'hero', kind: 'text', label: 'Headline', bbox: { x: 300, y: 100, w: 400, h: 60 }, style: { opacity: 1, fontSize: 48, color: '#374151', bg: '#ffffff', role: 'heading' } },
+    line('sec1', 'Section one', 40, 260, 24),
+    line('sec2', 'Section two', 48, 420, 24),
+  ]));
+  expect(has(r, 'grid-drift')).toBeUndefined();
+});
+
+test('FP-guard: transform float noise (40 vs 40.0000001 vs 240) is ONE grid, not three', () => {
+  // a transformed SVG yields 40.0000001 where the source said 40; exact float comparison
+  // across bands would split one shared grid line in two. Cross-band distinct is keyed on
+  // 0.1px — the same rounding low-contrast-ui's tileKey uses.
+  const r = scanAlt(alt([
+    line('b1', 'Section one', 40, 100, 24),
+    line('b2', 'Section two', 40.0000001, 240, 24),
+    line('b3', 'Other', 240, 380, 24),
+  ]));
+  expect(has(r, 'grid-drift')).toBeUndefined();
+});
+
+test('vuln: grid-drift on an empty canvas is a clean no-op (no TypeError)', () => {
+  const r = scanAlt(alt([]));
+  expect(has(r, 'grid-drift')).toBeUndefined();
+});
+
 test('FP-guard: an ALT with a text role but no `kind` is still treated as copy', () => {
   // the TEXT_ROLES branch exists for hand-authored ALTs that set role without kind — keep it
   const r = scanAlt(alt([

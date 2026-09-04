@@ -21,6 +21,8 @@ Multi-domain (geometry / text / color). Each negates a specific layout defect (n
 | `all-caps-text` | long text set in ALL CAPS | low | `text` | `deterministic` | `minLetters=8` `capsShare=0.9` `minNodes=1` | poster |
 | `pure-black-text` | pure black text on a light field | low | `text` | `deterministic` | `minNodes=1` `bgLumMin=0.5` | — |
 | `low-contrast-ui` | UI element below 3:1 against its backdrop (WCAG 1.4.11) | medium | `geometry` | `deterministic` | `ratio=3` `maxWidthShare=0.5` `maxHeightShare=0.15` `maxRepeats=4` | diagram |
+| `sibling-misalign` | same-row text siblings start at different first baselines | medium | `geometry` | `deterministic` | `yOverlap=0.5` `fontClassRatio=1.1` `tolFont=0.35` `minPairs=2` `maxNodes=80` | diagram |
+| `grid-drift` | section left edges drift across bands (no shared grid line) | low | `geometry` | `deterministic` | `bandGapRatio=0.02` `leftTolRatio=0.02` `minBands=3` `maxLefts=2` | diagram, poster |
 
 ## slop — AI-slop signatures
 
