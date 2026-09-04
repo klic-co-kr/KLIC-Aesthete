@@ -18,3 +18,4 @@ examples/validation-svg/carpo-*.svg
 # bun:test scratch fixtures (regenerated every run — never part of a commit)
 test/.tmp-*/
 AGENTS.md
+align-sigs/
