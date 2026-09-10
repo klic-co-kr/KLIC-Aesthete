@@ -19,3 +19,6 @@ examples/validation-svg/carpo-*.svg
 test/.tmp-*/
 AGENTS.md
 align-sigs/
+
+# effort-router task state
+docs/task-id/

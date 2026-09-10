@@ -3,6 +3,9 @@
 // Re-measures / re-fixes the reference examples and asserts the output byte-matches the
 // checked-in snapshots. Any deterministic drift shows up as a diff — re-run measure/fix
 // and commit if the change is intentional. Plus version-sync across package/lockfile/SKILL.
+// Invariant: golden layouts must keep meta.source:'abstract' — svg-import-gated logic
+// (proximity structural relations, thin-connector collision band) must never leak into
+// the golden fixtures, or this harness silently changes meaning.
 
 import fs from 'node:fs';
 import path from 'node:path';
