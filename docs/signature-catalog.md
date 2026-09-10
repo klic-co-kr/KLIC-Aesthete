@@ -1,6 +1,6 @@
 # Signature Catalog
 
-Auto-generated from `lib/vuln.mjs` + `lib/slop/signatures/*.mjs` by `scripts/gen-signature-catalog.mjs`. Do not edit by hand — run `bun run gen:catalog`.
+Auto-generated from `lib/vuln.mjs` + `lib/vuln-sigs/*.mjs` + `lib/slop/signatures/*.mjs` by `scripts/gen-signature-catalog.mjs`. Do not edit by hand — run `bun run gen:catalog`.
 
 Every signature is **deterministic** unless its detection column says otherwise (`browser` = needs real CSS layout; `llm-only` = no deterministic detector, caught by an LLM judge). All vuln/slop signatures are `measure-only` / advisory — they never touch the 9-skill weighted score, so adding one never churns `examples/*.report.json`.
 
@@ -24,6 +24,7 @@ Multi-domain (geometry / text / color). Each negates a specific layout defect (n
 | `sibling-misalign` | same-row text siblings start at different first baselines | medium | `geometry` | `deterministic` | `yOverlap=0.5` `fontClassRatio=1.1` `tolFont=0.35` `minPairs=2` `maxNodes=80` | diagram |
 | `grid-drift` | section left edges drift across bands (no shared grid line) | low | `geometry` | `deterministic` | `bandGapRatio=0.02` `leftTolRatio=0.02` `minBands=3` `maxLefts=2` | diagram, poster |
 | `label-baseline-off` | sole label rides high/low in its box (absolute baseline misalignment) | medium | `geometry` | `deterministic` | `minOffsetPx=2` `offsetRatio=0.08` `textShareMin=0.2` `maxNodes=400` | — |
+| `anchor-buried` | connector endpoint buried inside a node shape (boundary-clip violation) | medium | `geometry` | `deterministic` | `minDepthPx=8` `maxNodes=400` | — |
 
 ## slop — AI-slop signatures
 

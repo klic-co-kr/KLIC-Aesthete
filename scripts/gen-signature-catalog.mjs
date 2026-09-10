@@ -43,7 +43,7 @@ function row(sig, threshold, suppressedFor) {
 const out = [];
 out.push('# Signature Catalog');
 out.push('');
-out.push('Auto-generated from `lib/vuln.mjs` + `lib/slop/signatures/*.mjs` by `scripts/gen-signature-catalog.mjs`. Do not edit by hand — run `bun run gen:catalog`.');
+out.push('Auto-generated from `lib/vuln.mjs` + `lib/vuln-sigs/*.mjs` + `lib/slop/signatures/*.mjs` by `scripts/gen-signature-catalog.mjs`. Do not edit by hand — run `bun run gen:catalog`.');
 out.push('');
 out.push('Every signature is **deterministic** unless its detection column says otherwise (`browser` = needs real CSS layout; `llm-only` = no deterministic detector, caught by an LLM judge). All vuln/slop signatures are `measure-only` / advisory — they never touch the 9-skill weighted score, so adding one never churns `examples/*.report.json`.');
 out.push('');

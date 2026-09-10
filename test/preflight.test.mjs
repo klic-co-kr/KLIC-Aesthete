@@ -213,3 +213,12 @@ test('preflight: brief signal OVERRIDES diversification (brief-fit wins over for
   expect(s.structure.id).toBe('manifesto');
   expect(s.structurePickReason).toBe('inferred');
 });
+
+test('preflight: the connector boundary-clip negation is universal (svg + briefless formats)', () => {
+  // anchor-buried's generation-side twin: every diagram format gets the "end edges at the
+  // node boundary" ban, not just html-shaped outputs
+  const svg = preflight(brief('diagram', { format: 'svg' }));
+  expect(svg.negation.layout.some((n) => n.includes('node boundary'))).toBe(true);
+  const nofmt = preflight(brief('diagram'));
+  expect(nofmt.negation.layout.some((n) => n.includes('node boundary'))).toBe(true);
+});

@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test';
 import { writeZip, readZip, zipEntryText, crc32 } from '../lib/adapters/zip.mjs';
 import { parseXml, findByTag, localName, textOf } from '../lib/adapters/xml.mjs';
-import { importSvg, exportSvg } from '../lib/adapters/svg.mjs';
+import { importSvg, exportSvg, pathEndpoints } from '../lib/adapters/svg.mjs';
 import { importHtml, exportHtml } from '../lib/adapters/html.mjs';
 import { importPptx, exportPptx } from '../lib/adapters/pptx.mjs';
 import { detectOoxmlFlavor } from '../lib/adapters/ooxml.mjs';
@@ -287,4 +287,66 @@ test('svg: strokeWidth is recorded (raw × matrix scale, default 1) and validate
     meta: { title: 't', canvas: { w: 10, h: 10 } },
     nodes: [{ id: 'x', bbox: { x: 0, y: 0, w: 1, h: 1 }, style: { strokeWidth: 2 } }],
   });
+});
+
+// ---- svg stroke-endpoint capture (raw input for vuln anchor-buried) ----
+
+test('svg: pathEndpoints walks M/L/H/V/C/A tokens — first·last on-path points + subpath count', () => {
+  expect(pathEndpoints('M10 10 L100 10')).toEqual({ first: [10, 10], last: [100, 10], subpaths: 1 });
+  expect(pathEndpoints('M0 0 H40 V30')).toEqual({ first: [0, 0], last: [40, 30], subpaths: 1 });
+  expect(pathEndpoints('M5 5 C15 5 25 25 35 25')).toEqual({ first: [5, 5], last: [35, 25], subpaths: 1 });
+  expect(pathEndpoints('M0 0 A10 10 0 0 1 20 20')).toEqual({ first: [0, 0], last: [20, 20], subpaths: 1 });
+  expect(pathEndpoints('M0 0 L10 0 M0 10 L10 10').subpaths).toBe(2);
+  // Z returns the pen to the subpath start → a closed loop has coincident ends (no anchor pair)
+  expect(pathEndpoints('M10 10 L50 10 Z')).toEqual({ first: [10, 10], last: [10, 10], subpaths: 1 });
+  expect(pathEndpoints('')).toBe(null);
+  expect(pathEndpoints(undefined)).toBe(null);
+});
+
+test('svg: <line> records endpoints in world coords; text/box nodes carry no endpoints key', async () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">
+    <line id="edge" x1="10" y1="20" x2="110" y2="80" stroke="#111"/>
+    <rect id="box" x="0" y="0" width="50" height="50" fill="#ffffff"/>
+    <text x="10" y="100" font-size="12">note</text>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes.find((n) => n.id === 'edge')?.endpoints).toEqual([[10, 20], [110, 80]]);
+  // non-stroke nodes never grow the key (backward-compatible node shape, strokeWidth pattern)
+  expect('endpoints' in (alt.nodes.find((n) => n.id === 'box') ?? {})).toBe(false);
+  expect('endpoints' in (alt.nodes.find((n) => n.id === 'text-0') ?? {})).toBe(false);
+  await validate('alt', alt);
+});
+
+test('svg: fill=none <path> records first·last on-path points; filled/multi-subpath/closed do not', async () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">
+    <path id="poly" d="M10 10 L100 10 C140 10 140 90 100 90" fill="none" stroke="#111"/>
+    <path id="filled" d="M10 100 L100 100 L100 180 Z" fill="#4ade80"/>
+    <path id="multi" d="M10 5 L50 5 M10 15 L50 15" fill="none" stroke="#111"/>
+    <path id="loop" d="M60 120 C90 120 90 160 60 160 C30 160 30 120 60 120 Z" fill="none" stroke="#111"/>
+  </svg>`;
+  const alt = importSvg(svg);
+  expect(alt.nodes.find((n) => n.id === 'poly')?.endpoints).toEqual([[10, 10], [100, 90]]);
+  // filled shape / multi-subpath compound / closed deco loop → no key (no anchor semantics)
+  expect('endpoints' in (alt.nodes.find((n) => n.id === 'filled') ?? {})).toBe(false);
+  expect('endpoints' in (alt.nodes.find((n) => n.id === 'multi') ?? {})).toBe(false);
+  expect('endpoints' in (alt.nodes.find((n) => n.id === 'loop') ?? {})).toBe(false);
+  await validate('alt', alt);
+});
+
+test('svg: endpoints are world-normalized under a parent transform (translate+scale)', async () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">
+    <g transform="translate(10, 5) scale(2)">
+      <line id="edge" x1="5" y1="10" x2="50" y2="10" stroke="#111"/>
+    </g>
+  </svg>`;
+  const alt = importSvg(svg);
+  // world = translate(10,5) ∘ scale(2): (5,10) → (20,25), (50,10) → (110,25)
+  expect(alt.nodes.find((n) => n.id === 'edge')?.endpoints).toEqual([[20, 25], [110, 25]]);
+});
+
+test('svg: endpoints is a schema-legal optional node key (tuple shape pinned)', async () => {
+  const base = { schema_version: 1, diagram_type: 'layout', meta: { title: 't', canvas: { w: 10, h: 10 } } };
+  await validate('alt', { ...base, nodes: [{ id: 'x', bbox: { x: 0, y: 0, w: 1, h: 1 }, endpoints: [[1, 1], [2, 2]] }] });
+  // object-form points are NOT endpoints — the tuple shape is load-bearing for consumers
+  await expect(validate('alt', { ...base, nodes: [{ id: 'y', bbox: { x: 0, y: 0, w: 1, h: 1 }, endpoints: [{ x: 1, y: 1 }, { x: 2, y: 2 }] }] })).rejects.toThrow();
 });

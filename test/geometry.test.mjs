@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test';
 import {
   rectsOverlap, overlapArea, overlapDepth, overflow, clampToCanvas,
-  shapeComplexity, area, center, dist, translate, scaleAround, isFiniteBox,
+  shapeComplexity, area, center, dist, translate, scaleAround, isFiniteBox, boundaryExit,
 } from '../lib/geometry.mjs';
 
 test('rectsOverlap detects overlap and respects gap', () => {
@@ -55,4 +55,49 @@ test('translate and scaleAround preserve finiteness', () => {
   const s = scaleAround(b, 0, 0, 2);
   expect(s.x).toBe(20);
   expect(s.w).toBe(8);
+});
+
+// ---- boundaryExit — the boundary-clip primitive for vuln anchor-buried ----
+
+test('boundaryExit: rect slab cut — side, diagonal, and off-centre approaches', () => {
+  const b = { x: 0, y: 0, w: 100, h: 100 };
+  expect(boundaryExit(b, 'rect', [50, 150])).toEqual([50, 100]);   // bottom edge
+  expect(boundaryExit(b, 'rect', [50, -50])).toEqual([50, 0]);     // top edge
+  expect(boundaryExit(b, 'rect', [150, 50])).toEqual([100, 50]);   // right edge
+  expect(boundaryExit(b, 'rect', [-50, 50])).toEqual([0, 50]);     // left edge
+  expect(boundaryExit(b, 'rect', [100, 100])).toEqual([100, 100]); // diagonal → corner
+  // both axes offset: the nearer slab (x) wins; the y coordinate keeps the ray slope
+  expect(boundaryExit(b, 'rect', [90, 70])).toEqual([100, 75]);
+});
+
+test('boundaryExit: rect with a degenerate centre ray falls back to the given direction', () => {
+  const b = { x: 0, y: 0, w: 100, h: 100 };
+  // inside === centre with no fallback direction → no answer (NaN must never escape)
+  expect(boundaryExit(b, 'rect', [50, 50])).toBe(null);
+  // a centre-connected stroke arrives along its own axis — that axis decides the crossing
+  expect(boundaryExit(b, 'rect', [50, 50], [-1, 0])).toEqual([0, 50]);
+  expect(boundaryExit(b, 'rect', [50, 50], [0, 2])).toEqual([50, 100]);
+  expect(boundaryExit(b, 'rect', [50, 50], [0, 0])).toBe(null); // zero fallback dir → null
+});
+
+test('boundaryExit: ellipse exact solution — axis and diagonal approaches', () => {
+  const b = { x: 0, y: 0, w: 100, h: 50 }; // centre (50,25), rx 50, ry 25
+  expect(boundaryExit(b, 'ellipse', [150, 25])).toEqual([100, 25]);
+  expect(boundaryExit(b, 'ellipse', [50, 125])).toEqual([50, 50]);
+  const diag = boundaryExit(b, 'ellipse', [100, 75]);
+  expect(diag[0]).toBeCloseTo(72.3607, 3);
+  expect(diag[1]).toBeCloseTo(47.3607, 3);
+  // circle takes the same path
+  expect(boundaryExit({ x: 0, y: 0, w: 100, h: 100 }, 'circle', [125, 50])).toEqual([100, 50]);
+  // ellipse + centre ray + approach direction
+  expect(boundaryExit(b, 'ellipse', [50, 25], [1, 0])).toEqual([100, 25]);
+});
+
+test('boundaryExit: degenerate and non-finite inputs stay null (no NaN escape)', () => {
+  expect(boundaryExit({ x: 50, y: 0, w: 0, h: 100 }, 'ellipse', [50, 80])).toBe(null); // rx=0
+  expect(boundaryExit({ x: 50, y: 0, w: 0, h: 100 }, 'rect', [50, 80])).toEqual([50, 100]); // zero-width slab: y-axis still answers
+  expect(boundaryExit({ x: 50, y: 0, w: 0, h: 100 }, 'rect', [60, 50])).toEqual([50, 50]); // t=0 → centre exit
+  expect(boundaryExit({ x: NaN, y: 0, w: 10, h: 10 }, 'rect', [5, 5])).toBe(null);
+  expect(boundaryExit({ x: 0, y: 0, w: 10, h: 10 }, 'rect', [Infinity, 5])).toBe(null);
+  expect(boundaryExit({ x: 0, y: 0, w: 10, h: 10 }, 'rect', 'nope')).toBe(null);
 });

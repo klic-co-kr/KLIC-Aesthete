@@ -43,6 +43,11 @@
           "kind": { "$ref": "common.schema.json#/$defs/nodeKind" },
           "shape": { "$ref": "common.schema.json#/$defs/nodeShape" },
           "bbox": { "$ref": "common.schema.json#/$defs/bbox" },
+          "endpoints": {
+            "type": "array", "minItems": 2, "maxItems": 2,
+            "description": "stroke-path endpoints in world coords [[x,y],[x,y]] — svg adapter: <line> x1..y2 / single-subpath fill=none <path> first·last on-path point. Consumed by vuln anchor-buried; absent on domains without endpoint capture (graceful bail)",
+            "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+          },
           "style": {
             "type": "object",
             "additionalProperties": false,
