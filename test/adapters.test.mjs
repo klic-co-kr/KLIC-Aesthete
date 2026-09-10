@@ -7,6 +7,7 @@ import { importPptx, exportPptx } from '../lib/adapters/pptx.mjs';
 import { detectOoxmlFlavor } from '../lib/adapters/ooxml.mjs';
 import { readImageDimensions, importImage } from '../lib/adapters/image.mjs';
 import { detectDomain } from '../lib/adapters/index.mjs';
+import { validate } from '../lib/shared/validator.mjs';
 
 test('zip: write→read round-trips text entries (stored + deflated)', () => {
   const longText = '<r>' + 'a'.repeat(500) + '</r>';
@@ -261,4 +262,29 @@ test('registry: detectDomain by extension', () => {
   expect(detectDomain('a.png')).toBe('image');
   expect(detectDomain('a.json')).toBe('alt');
   expect(detectDomain('a.unknown')).toBe('alt');
+});
+
+test('svg: strokeWidth is recorded (raw × matrix scale, default 1) and validates against the alt schema', async () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">
+    <g transform="scale(2)">
+      <path id="edge" d="M20 20 L100 20" fill="none" stroke="#111" stroke-width="1.5"/>
+    </g>
+    <line id="plain" x1="10" y1="150" x2="200" y2="150" stroke="#333"/>
+    <text x="10" y="100" font-size="12">note</text>
+  </svg>`;
+  const alt = importSvg(svg);
+  // raw stroke-width × matrixScale (fontSize rule): 1.5 × scale(2) = 3
+  expect(alt.nodes.find((n) => n.id === 'edge')?.style.strokeWidth).toBe(3);
+  // stroke present, attribute absent → default 1
+  expect(alt.nodes.find((n) => n.id === 'plain')?.style.strokeWidth).toBe(1);
+  // no stroke attribute → no strokeWidth key (backward-compatible style shape)
+  expect('strokeWidth' in (alt.nodes.find((n) => n.id === 'text-0')?.style ?? {})).toBe(false);
+  // measured-in path: same validation measure.mjs runs (lib/shared/validator.mjs)
+  await validate('alt', alt);
+  // schema-level pin: strokeWidth is an accepted optional style key
+  await validate('alt', {
+    schema_version: 1, diagram_type: 'layout',
+    meta: { title: 't', canvas: { w: 10, h: 10 } },
+    nodes: [{ id: 'x', bbox: { x: 0, y: 0, w: 1, h: 1 }, style: { strokeWidth: 2 } }],
+  });
 });

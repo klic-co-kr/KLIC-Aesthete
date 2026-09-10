@@ -53,6 +53,7 @@
               "color": { "type": "string" },
               "bg": { "type": "string" },
               "filled": { "type": "boolean", "description": "false for stroke-only/outline elements (e.g. lucide fill=none) — used to skip stroke–stroke crossing 'collisions' in icons" },
+              "strokeWidth": { "type": "number", "minimum": 0, "description": "stroke thickness in canvas units (svg adapter: raw stroke-width × transform scale, default 1). collision inflates a thin fill=none connector's bbox by strokeWidth/2 into its real ink band" },
               "role": { "$ref": "common.schema.json#/$defs/role" }
             }
           }
