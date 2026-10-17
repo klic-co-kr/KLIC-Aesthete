@@ -2,6 +2,14 @@
 
 **English** | [한국어](./README.ko.md)
 
+<!-- gitreels:start -->
+<p align="center">
+  <a href="https://gitreels.com/klic-co-kr/KLIC-Aesthete"><img src="https://gitreels.com/klic-co-kr/KLIC-Aesthete.webp" alt="klic-co-kr/KLIC-Aesthete in 15 seconds" width="100%"></a>
+  <br>
+  <a href="https://gitreels.com"><img src="https://gitreels.com/badge.svg" alt="Made with GitReels" height="24"></a>
+</p>
+<!-- gitreels:end -->
+
 > A layout-aesthetics measurement and correction engine that encapsulates cognitive-aesthetics theory as **deterministic execution modules**.
 > Measuring, judging, and correcting are all pure geometric arithmetic — the evaluator is **formulas, not an LLM**, so post-hoc rationalization is structurally impossible.
 
